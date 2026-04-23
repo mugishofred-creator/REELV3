@@ -153,6 +153,45 @@ export default function PlusScreen() {
           </Card>
         </TouchableOpacity>
       ))}
+      <SectionTitle
+        title="Sauvegarde & Restauration"
+        subtitle="Protège tes données, change de téléphone sereinement"
+      />
+
+      <TouchableOpacity onPress={onBackup} activeOpacity={0.85} testID="backup-create">
+        <Card style={[styles.item, styles.backupItem]}>
+          <View style={[styles.icon, { backgroundColor: `${colors.good}22`, borderColor: `${colors.good}55` }]}>
+            <Ionicons name="cloud-upload-outline" size={22} color={colors.good} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Créer une sauvegarde</Text>
+            <Text style={styles.desc}>
+              Fichier .json complet • partage via iCloud, Drive, WhatsApp, mail…
+            </Text>
+          </View>
+          <Ionicons name="share-outline" size={20} color={colors.textMuted} />
+        </Card>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={onRestore} activeOpacity={0.85} testID="backup-restore">
+        <Card style={styles.item}>
+          <View style={[styles.icon, { backgroundColor: `${colors.info}22`, borderColor: `${colors.info}55` }]}>
+            <Ionicons name="cloud-download-outline" size={22} color={colors.info} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Restaurer une sauvegarde</Text>
+            <Text style={styles.desc}>
+              Importer un fichier .json • fusionner ou remplacer
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+        </Card>
+      </TouchableOpacity>
+
+      <Text style={styles.tip}>
+        💡 Crée une sauvegarde avant de changer de téléphone ou de désinstaller l'app. Envoie-toi le fichier par mail pour le garder en sécurité.
+      </Text>
+
 
       <SectionTitle title="Export CSV" subtitle="Sauvegarde tes données" />
 
