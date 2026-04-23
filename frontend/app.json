@@ -1,15 +1,27 @@
 {
   "expo": {
     "name": "Vinted Manager",
-    "slug": "frontend",
-    "version": "1.1.0",
+    "slug": "vinted-manager",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "vintedmanager",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "primaryColor": "#39FF14",
+    "backgroundColor": "#0a0a0f",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#0a0a0f",
+      "translucent": false
+    },
+    "androidNavigationBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#0a0a0f"
+    },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.vintedmanager.app",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Ajoute des photos à tes articles",
         "NSPhotoLibraryAddUsageDescription": "Enregistre des photos d'articles",
@@ -17,9 +29,11 @@
       }
     },
     "android": {
+      "package": "com.vintedmanager.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000"
+        "backgroundColor": "#0a0a0f"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -42,7 +56,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000"
+          "backgroundColor": "#0a0a0f"
         }
       ],
       [
