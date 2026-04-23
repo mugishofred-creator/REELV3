@@ -7,6 +7,12 @@ import { Card, SectionTitle } from "../../src/components/Card";
 import { colors } from "../../src/theme/colors";
 import { useData } from "../../src/store/context";
 import { exportStock, exportVentes, exportRetours } from "../../src/utils/csv";
+import {
+  exportBackup,
+  pickBackupFile,
+  applyRestore,
+  countPayload,
+} from "../../src/utils/backup";
 
 const MENU = [
   {
@@ -45,7 +51,7 @@ const MENU = [
 
 export default function PlusScreen() {
   const router = useRouter();
-  const { stock, ventes, retours, resetAll } = useData();
+  const { stock, ventes, retours, resetAll, reloadFromStorage } = useData();
 
   const confirmReset = () => {
     Alert.alert(
@@ -63,6 +69,60 @@ export default function PlusScreen() {
       await fn();
     } catch {
       Alert.alert("Erreur", "Export impossible.");
+    }
+  };
+
+  const onBackup = async () => {
+    try {
+      await exportBackup();
+    } catch {
+      Alert.alert("Erreur", "Impossible de créer la sauvegarde.");
+    }
+  };
+
+  const onRestore = async () => {
+    try {
+      const res = await pickBackupFile();
+      if (!res.ok) {
+        if (res.reason === "invalid") {
+          Alert.alert(
+            "Fichier invalide",
+            "Ce fichier n'est pas une sauvegarde Vinted Manager valide."
+          );
+        } else if (res.reason === "parse") {
+          Alert.alert("Fichier corrompu", "Impossible de lire le fichier.");
+        }
+        return;
+      }
+      const payload = res.payload!;
+      Alert.alert(
+        "Restaurer la sauvegarde",
+        `Sauvegarde du ${new Date(payload.exportedAt).toLocaleDateString(
+          "fr-FR"
+        )}\n${countPayload(payload)}\n\nQue veux-tu faire ?`,
+        [
+          { text: "Annuler", style: "cancel" },
+          {
+            text: "Fusionner",
+            onPress: async () => {
+              await applyRestore(payload, "merge");
+              await reloadFromStorage();
+              Alert.alert("✓ Importé", "Tes données ont été fusionnées.");
+            },
+          },
+          {
+            text: "Remplacer",
+            style: "destructive",
+            onPress: async () => {
+              await applyRestore(payload, "replace");
+              await reloadFromStorage();
+              Alert.alert("✓ Restauré", "Tes données ont été remplacées.");
+            },
+          },
+        ]
+      );
+    } catch {
+      Alert.alert("Erreur", "Impossible de restaurer la sauvegarde.");
     }
   };
 
@@ -123,7 +183,7 @@ export default function PlusScreen() {
         <Text style={styles.resetText}>Réinitialiser toutes les données</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footer}>Vinted Manager • v1.1</Text>
+      <Text style={styles.footer}>Vinted Manager • v1.2</Text>
     </ScrollView>
   );
 }
@@ -199,5 +259,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 11,
     marginTop: 30,
+  },
+  backupItem: {
+    borderColor: colors.goodBorder,
+  },
+  tip: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 6,
+    marginBottom: 4,
+    paddingHorizontal: 4,
   },
 });

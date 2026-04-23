@@ -9,6 +9,7 @@ import {
   setupNotifications,
   notifyUrgentActions,
   scheduleDailyReminder,
+  scheduleWeeklyBackupReminder,
 } from "../src/utils/notifications";
 import {
   computeScore,
@@ -28,6 +29,7 @@ function NotificationsBridge() {
       const granted = await setupNotifications();
       if (cancelled || !granted) return;
       await scheduleDailyReminder();
+      await scheduleWeeklyBackupReminder();
 
       let urgent = 0;
       stock.forEach((i) => {

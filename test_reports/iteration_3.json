@@ -1,0 +1,43 @@
+{
+  "summary": "Frontend-only review of Vinted Manager v1.2 (Backup/Restore). CRITICAL BLOCKER: the Plus tab is missing the entire 'Sauvegarde & Restauration' UI section — both testIDs `backup-create` and `backup-restore`, the section title, the two buttons, and the '💡 Crée une sauvegarde avant…' tip are absent from /app/frontend/app/(tabs)/plus.tsx. The supporting code (imports from backup.ts, onBackup/onRestore handlers, `backupItem`+`tip` styles, reloadFromStorage in context) is all correctly implemented, but the JSX that renders the section was never added, so users cannot trigger backup or restore. v1.1 regression verified OK: Dashboard, Stock, Ventes, Action, Plus tabs render without red-screen, Export CSV section still visible, footer shows 'v1.2', notifications module is web no-op (warning logged only).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/(tabs)/plus.tsx",
+        "issue": "Missing JSX for 'Sauvegarde & Restauration' section. Handlers onBackup/onRestore are defined (lines 75-127) and styles backupItem/tip are declared (lines 263-273) but never rendered. testIDs `backup-create` and `backup-restore` do not exist in the DOM. Tip text '💡 Crée une sauvegarde avant de changer de téléphone…' is also missing.",
+        "testID": "backup-create, backup-restore",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Backup/Restore end-to-end",
+        "issue": "Cannot be exercised at all because the two trigger buttons are not rendered. buildBackup/exportBackup/pickBackupFile/applyRestore in /app/frontend/src/utils/backup.ts look correct (web uses Blob+anchor download; isValidPayload checks app==='vinted-manager' + arrays; merge by id; replace overwrites AsyncStorage; reloadFromStorage refreshes UI state after restore).",
+        "affected_testIDs": ["backup-create", "backup-restore"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Add the Sauvegarde & Restauration JSX block in /app/frontend/app/(tabs)/plus.tsx, e.g. placed right after the MENU loop and before SectionTitle 'Export CSV'. Suggested minimal snippet:\n\n<SectionTitle title=\"Sauvegarde & Restauration\" subtitle=\"Protège tes données\" />\n<TouchableOpacity onPress={onBackup} activeOpacity={0.85} testID=\"backup-create\">\n  <Card style={[styles.item, styles.backupItem]}>\n    <View style={[styles.icon, { backgroundColor: `${colors.good}22`, borderColor: `${colors.good}55` }]}>\n      <Ionicons name=\"save-outline\" size={22} color={colors.good} />\n    </View>\n    <View style={{ flex: 1 }}>\n      <Text style={styles.title}>Créer une sauvegarde</Text>\n      <Text style={styles.desc}>Fichier JSON (stock, ventes, clients, retours, niches)</Text>\n    </View>\n    <Ionicons name=\"download-outline\" size={20} color={colors.textMuted} />\n  </Card>\n</TouchableOpacity>\n<TouchableOpacity onPress={onRestore} activeOpacity={0.85} testID=\"backup-restore\">\n  <Card style={[styles.item, styles.backupItem]}>\n    <View style={[styles.icon, { backgroundColor: `${colors.info}22`, borderColor: `${colors.info}55` }]}>\n      <Ionicons name=\"cloud-upload-outline\" size={22} color={colors.info} />\n    </View>\n    <View style={{ flex: 1 }}>\n      <Text style={styles.title}>Restaurer une sauvegarde</Text>\n      <Text style={styles.desc}>Importer un fichier JSON précédent</Text>\n    </View>\n    <Ionicons name=\"chevron-forward\" size={20} color={colors.textMuted} />\n  </Card>\n</TouchableOpacity>\n<Text style={styles.tip}>💡 Crée une sauvegarde avant de changer de téléphone ou désinstaller l'app.</Text>",
+    "After adding the JSX, re-run tests to cover: (a) backup-create triggers a .json download on web (filename vinted-manager-backup-YYYY-MM-DD.json), (b) backup-restore opens the web <input type=file> document picker, (c) invalid JSON → 'Fichier invalide' alert, (d) valid JSON → 3-button alert (Annuler/Fusionner/Remplacer) and UI reflects imported data after reloadFromStorage."
+  ],
+  "critical_code_review_comments": [
+    "plus.tsx: handlers, imports and styles were added but the UI block wiring them is missing. This is the entire v1.2 feature UI — looks like a paste was truncated. Add the JSX block between the MENU map and 'Export CSV' SectionTitle.",
+    "backup.ts: uses `expo-file-system/legacy` — intentional to keep writeAsStringAsync/readAsStringAsync API; fine for SDK 54+. Web branch builds a Blob and clicks an anchor — correct for forcing a download. isValidPayload correctly guards non-VM JSON.",
+    "context.tsx: new `reloadFromStorage` is correctly wired and used by the restore handler so state refreshes post-import without a page reload — good design.",
+    "notifications.ts: scheduleWeeklyBackupReminder is web-noop (early-return on Platform.OS==='web'). No crash on web verified; uses CalendarTriggerInput with weekday/hour/minute — appropriate for iOS/Android.",
+    "plus.tsx imports `applyRestore` but it is only called inside onRestore, which is itself never invoked because the restore button is missing — dead import at runtime until JSX is added.",
+    "Minor: the description 'stock.length article' uses s-plural but '0 article' shows singular — cosmetic only."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "0% for v1.2 feature (UI missing); 100% for v1.1 regression"},
+  "seed_data_creation": "None — could not proceed beyond UI check because the backup UI is absent.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After main agent adds the JSX for backup-create/backup-restore buttons + tip text in /app/frontend/app/(tabs)/plus.tsx, re-run: (1) viewport 375x667, open https://4baf622a-f5cb-4cb5-b7cd-e29e7dccddf9.preview.emergentagent.com, navigate to Plus tab, assert `[data-testid=\"backup-create\"]` and `[data-testid=\"backup-restore\"]` exist. (2) Intercept window.URL.createObjectURL and HTMLAnchorElement.prototype.click BEFORE clicking backup-create to capture the Blob content without a real download; verify filename matches /^vinted-manager-backup-\\d{4}-\\d{2}-\\d{2}\\.json$/ and parsed JSON contains keys {version:1, app:'vinted-manager', exportedAt, stock, ventes, clients, retours, niches}. (3) For restore flow on web, the `expo-document-picker` renders an <input type=file> — use page.set_input_files to feed a crafted invalid JSON (expect 'Fichier invalide') and then a valid payload (expect 3-button alert). Note Playwright can only intercept JS alerts via page.on('dialog'), but React Native's Alert on web uses window.alert/confirm — listen for 'dialog' events and accept/dismiss to exercise Fusionner/Remplacer branches. (4) After Remplacer, verify stock tab shows the imported items.",
+  "rca_of_issue": "Missing UI for v1.2 backup/restore. RCA: in /app/frontend/app/(tabs)/plus.tsx the author added (a) imports from ../src/utils/backup, (b) onBackup/onRestore handlers, (c) styles.backupItem and styles.tip, and (d) updated footer to v1.2 — but forgot to add the JSX block that renders the SectionTitle + two TouchableOpacity buttons (testID backup-create, backup-restore) + the tip Text. Reproduction: open Plus tab → only Sourcing/Niches/Clients/Retours cards + Export CSV + Réinitialiser are visible; no 'Sauvegarde & Restauration' section, no backup buttons, no tip. Mitigation: add the JSX snippet shown in action_items between the MENU.map(...) and the <SectionTitle title=\"Export CSV\" …/> lines. The backing code is already in place so only JSX is needed."
+}

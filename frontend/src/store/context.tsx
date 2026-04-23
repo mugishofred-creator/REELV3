@@ -86,6 +86,7 @@ type Ctx = {
   updateNiche: (id: string, patch: Partial<Niche>) => void;
   deleteNiche: (id: string) => void;
   resetAll: () => void;
+  reloadFromStorage: () => Promise<void>;
 };
 
 const DataContext = createContext<Ctx | null>(null);
@@ -245,6 +246,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setNiches([]);
   }, []);
 
+  const reloadFromStorage = useCallback(async () => {
+    const [s, v, c, r, n] = await Promise.all([
+      loadJSON<StockItem[]>(STORAGE_KEYS.stock, []),
+      loadJSON<Vente[]>(STORAGE_KEYS.ventes, []),
+      loadJSON<Client[]>(STORAGE_KEYS.clients, []),
+      loadJSON<Retour[]>(STORAGE_KEYS.retours, []),
+      loadJSON<Niche[]>(STORAGE_KEYS.niches, []),
+    ]);
+    setStock(s);
+    setVentes(v);
+    setClients(c);
+    setRetours(r);
+    setNiches(n);
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -268,6 +284,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         updateNiche,
         deleteNiche,
         resetAll,
+        reloadFromStorage,
       }}
     >
       {children}

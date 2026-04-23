@@ -65,3 +65,28 @@ export async function scheduleDailyReminder() {
     } as Notifications.CalendarTriggerInput,
   });
 }
+
+export async function scheduleWeeklyBackupReminder() {
+  if (Platform.OS === "web") return;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of scheduled) {
+    if (n.content?.data?.type === "backup") {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "💾 Pense à sauvegarder",
+      body:
+        "Exporte tes données Vinted Manager pour ne rien perdre en cas de changement de téléphone.",
+      data: { type: "backup" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+      weekday: 1, // Sunday (1) per iOS / Android expo mapping
+      hour: 20,
+      minute: 0,
+      repeats: true,
+    } as Notifications.CalendarTriggerInput,
+  });
+}
