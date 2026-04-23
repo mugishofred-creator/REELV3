@@ -33,7 +33,7 @@ src/
   theme/colors.ts              # palette
 ```
 
-## Fonctionnalités livrées (v1.1)
+## Fonctionnalités livrées (v1.2)
 - **Stock** : CRUD articles **+ photos base64** (miniatures 56×56 dans Stock, 48×48 en Mode Action, placeholder icône si pas de photo), score auto, décisions (GARDER/BAISSER/LIQUIDER/SUPPRIMER), règles 7/14/21 jours, repost automatique, compteur de reposts (force delete ≥3), flags "MAUVAISE ANNONCE" / "PRIX TROP ÉLEVÉ".
 - **Ventes** : CA, profit, délai moyen, prix moyens par marque, historique **+ "Performances mensuelles" (12 derniers mois avec CA, ventes, délai, ROI %, meilleur mois mis en avant)**.
 - **Sourcing** : analyse brand/catégorie/prix → verdict ACHAT FORT / ACHETER / NÉGOCIER / IGNORE.
@@ -42,13 +42,19 @@ src/
 - **Clients** : CRM pseudo/produit/statut + relance auto >24h.
 - **Retours** : 4 raisons, impact score marque.
 - **Dashboard** : KPIs + alertes globales.
-- **Export CSV** (nouveau) : 3 boutons dans Plus (stock / ventes / retours), partage natif mobile ou téléchargement direct sur web.
-- **Notifications locales** (nouveau) : permission à l'ouverture + notification immédiate si actions urgentes + rappel quotidien planifié à 9h00 (mobile natif uniquement, web = no-op).
+- **Export CSV** : 3 boutons dans Plus (stock / ventes / retours), partage natif mobile ou téléchargement direct sur web.
+- **Notifications locales** : permission à l'ouverture + notification immédiate si actions urgentes + rappel quotidien à 9h00 + rappel hebdo backup le dimanche 20h (mobile natif uniquement, web = no-op).
+- **💾 Sauvegarde & Restauration (v1.2)** :
+  - Export JSON complet `vinted-manager-backup-YYYY-MM-DD.json` (stock + ventes + clients + retours + niches, incluant les photos)
+  - Partage natif mobile (iCloud, Drive, WhatsApp, mail…) ou téléchargement direct sur web
+  - Restauration depuis fichier JSON avec choix "Fusionner" (par id) ou "Remplacer" tout
+  - Validation du schéma (rejette les fichiers non Vinted Manager)
+  - Use-case : changer de téléphone ou désinstaller l'app sans perdre de données
 - **Saisons** auto + bonus/malus.
 - **Reset** total des données.
 
-## Dépendances ajoutées v1.1
-`expo-image-picker`, `expo-notifications`, `expo-sharing`, `expo-file-system`
+## Dépendances ajoutées v1.2
+`expo-document-picker` (en plus de v1.1 : `expo-image-picker`, `expo-notifications`, `expo-sharing`, `expo-file-system`)
 
 ## Integrations
 Aucune (app 100 % locale AsyncStorage).
