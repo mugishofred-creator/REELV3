@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Input } from "../src/components/Input";
 import { Button } from "../src/components/Button";
+import { ImagePickerField } from "../src/components/ImagePickerField";
 import { colors } from "../src/theme/colors";
 import { useData } from "../src/store/context";
 import { detectSeason } from "../src/utils/logic";
@@ -20,6 +21,7 @@ export default function StockNew() {
   const [favorites, setFavorites] = useState("0");
   const [daysOnline, setDaysOnline] = useState("0");
   const [defect, setDefect] = useState(false);
+  const [image, setImage] = useState<string | undefined>(undefined);
 
   const save = () => {
     if (!name.trim() || !brand.trim() || !category.trim()) {
@@ -39,6 +41,7 @@ export default function StockNew() {
       season: detectSeason(category),
       repostCount: 0,
       sold: false,
+      image,
     });
     router.back();
   };
@@ -46,6 +49,7 @@ export default function StockNew() {
   return (
     <ModalScreen title="Nouvel article" subtitle="Ajoute-le à ton stock">
       <ScrollView contentContainerStyle={styles.content} testID="stock-new-scroll">
+        <ImagePickerField value={image} onChange={setImage} testID="stock-new-image" />
         <Input
           label="Nom"
           value={name}

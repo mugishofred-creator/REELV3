@@ -23,6 +23,7 @@ export interface StockItem {
   repostCount: number;
   sold: boolean;
   createdAt: string;
+  image?: string; // base64 data URI
 }
 
 export interface Vente {

@@ -14,6 +14,7 @@ import { ScreenHeader } from "../../src/components/ScreenHeader";
 import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
+import { Thumb } from "../../src/components/Thumb";
 import { colors } from "../../src/theme/colors";
 import {
   computeScore,
@@ -129,6 +130,7 @@ export default function StockScreen() {
           ({ item, score, decision, flag, repost: rp, forced, suggest }) => (
             <Card key={item.id} style={styles.itemCard} testID={`stock-item-${item.id}`}>
               <View style={styles.itemHeader}>
+                <Thumb uri={item.image} size={56} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName}>{item.name}</Text>
                   <Text style={styles.itemBrand}>

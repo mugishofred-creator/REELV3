@@ -5,6 +5,7 @@ import { ScreenHeader } from "../../src/components/ScreenHeader";
 import { Card, SectionTitle } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
+import { Thumb } from "../../src/components/Thumb";
 import { colors } from "../../src/theme/colors";
 import {
   computeScore,
@@ -81,6 +82,7 @@ export default function ActionScreen() {
               {toDelete.map((i) => (
                 <Card key={i.id} style={styles.card} testID={`action-delete-${i.id}`}>
                   <View style={styles.rowHead}>
+                    <Thumb uri={i.image} size={48} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.name}>{i.name}</Text>
                       <Text style={styles.meta}>
@@ -109,6 +111,7 @@ export default function ActionScreen() {
               {toDrop.map(({ item, suggested }) => (
                 <Card key={item.id} style={styles.card} testID={`action-drop-${item.id}`}>
                   <View style={styles.rowHead}>
+                    <Thumb uri={item.image} size={48} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.name}>{item.name}</Text>
                       <Text style={styles.meta}>
@@ -142,6 +145,7 @@ export default function ActionScreen() {
               {toRepost.map((i) => (
                 <Card key={i.id} style={styles.card} testID={`action-repost-${i.id}`}>
                   <View style={styles.rowHead}>
+                    <Thumb uri={i.image} size={48} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.name}>{i.name}</Text>
                       <Text style={styles.meta}>

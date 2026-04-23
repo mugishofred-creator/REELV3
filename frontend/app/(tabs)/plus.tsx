@@ -3,9 +3,10 @@ import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert } from "rea
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "../../src/components/ScreenHeader";
-import { Card } from "../../src/components/Card";
+import { Card, SectionTitle } from "../../src/components/Card";
 import { colors } from "../../src/theme/colors";
 import { useData } from "../../src/store/context";
+import { exportStock, exportVentes, exportRetours } from "../../src/utils/csv";
 
 const MENU = [
   {
@@ -44,7 +45,7 @@ const MENU = [
 
 export default function PlusScreen() {
   const router = useRouter();
-  const { resetAll } = useData();
+  const { stock, ventes, retours, resetAll } = useData();
 
   const confirmReset = () => {
     Alert.alert(
@@ -55,6 +56,14 @@ export default function PlusScreen() {
         { text: "Effacer", style: "destructive", onPress: resetAll },
       ]
     );
+  };
+
+  const onExport = async (fn: () => Promise<void>) => {
+    try {
+      await fn();
+    } catch {
+      Alert.alert("Erreur", "Export impossible.");
+    }
   };
 
   return (
@@ -85,6 +94,27 @@ export default function PlusScreen() {
         </TouchableOpacity>
       ))}
 
+      <SectionTitle title="Export CSV" subtitle="Sauvegarde tes données" />
+
+      <ExportRow
+        label="Stock"
+        hint={`${stock.length} article${stock.length > 1 ? "s" : ""}`}
+        onPress={() => onExport(() => exportStock(stock))}
+        testID="export-stock"
+      />
+      <ExportRow
+        label="Ventes"
+        hint={`${ventes.length} vente${ventes.length > 1 ? "s" : ""}`}
+        onPress={() => onExport(() => exportVentes(ventes))}
+        testID="export-ventes"
+      />
+      <ExportRow
+        label="Retours"
+        hint={`${retours.length} retour${retours.length > 1 ? "s" : ""}`}
+        onPress={() => onExport(() => exportRetours(retours))}
+        testID="export-retours"
+      />
+
       <TouchableOpacity
         onPress={confirmReset}
         style={styles.reset}
@@ -93,8 +123,35 @@ export default function PlusScreen() {
         <Text style={styles.resetText}>Réinitialiser toutes les données</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footer}>Vinted Manager • v1.0</Text>
+      <Text style={styles.footer}>Vinted Manager • v1.1</Text>
     </ScrollView>
+  );
+}
+
+function ExportRow({
+  label,
+  hint,
+  onPress,
+  testID,
+}: {
+  label: string;
+  hint: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} testID={testID}>
+      <Card style={styles.item}>
+        <View style={[styles.icon, { backgroundColor: `${colors.good}22`, borderColor: `${colors.good}55` }]}>
+          <Ionicons name="download-outline" size={22} color={colors.good} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>{label}</Text>
+          <Text style={styles.desc}>{hint}</Text>
+        </View>
+        <Ionicons name="share-outline" size={20} color={colors.textMuted} />
+      </Card>
+    </TouchableOpacity>
   );
 }
 

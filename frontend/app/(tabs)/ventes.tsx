@@ -6,6 +6,7 @@ import { Card, SectionTitle } from "../../src/components/Card";
 import { StatCard } from "../../src/components/StatCard";
 import { colors } from "../../src/theme/colors";
 import { computeNiches } from "../../src/utils/logic";
+import { computeMonthlyStats } from "../../src/utils/monthly";
 
 export default function VentesScreen() {
   const { ventes } = useData();
@@ -28,6 +29,13 @@ export default function VentesScreen() {
   }, [ventes]);
 
   const niches = useMemo(() => computeNiches(ventes), [ventes]);
+
+  const monthly = useMemo(() => computeMonthlyStats(ventes), [ventes]);
+
+  const bestMonth = useMemo(() => {
+    if (monthly.length === 0) return null;
+    return monthly.reduce((best, m) => (m.profit > best.profit ? m : best), monthly[0]);
+  }, [monthly]);
 
   return (
     <ScrollView
@@ -68,9 +76,47 @@ export default function VentesScreen() {
       </View>
 
       <SectionTitle
-        title="Prix moyens par marque"
-        subtitle="Utilisé pour le sourcing"
+        title="Performances mensuelles"
+        subtitle={
+          bestMonth
+            ? `Meilleur mois : ${bestMonth.label} • +${bestMonth.profit}€`
+            : "Ton ROI par mois"
+        }
       />
+      {monthly.length === 0 ? (
+        <Card>
+          <Text style={styles.empty}>Pas encore de données mensuelles.</Text>
+        </Card>
+      ) : (
+        monthly.map((m) => (
+          <Card key={m.key} style={styles.monthCard} testID={`month-${m.key}`}>
+            <View style={styles.monthHead}>
+              <Text style={styles.monthLabel}>{m.label.toUpperCase()}</Text>
+              <Text
+                style={[
+                  styles.monthProfit,
+                  { color: m.profit >= 0 ? colors.good : colors.urgent },
+                ]}
+              >
+                {m.profit >= 0 ? "+" : ""}
+                {m.profit.toFixed(0)} €
+              </Text>
+            </View>
+            <View style={styles.monthRow}>
+              <MonthStat label="Ventes" value={`${m.count}`} />
+              <MonthStat label="CA" value={`${m.revenue.toFixed(0)}€`} />
+              <MonthStat label="Délai" value={`${m.avgDelay}j`} />
+              <MonthStat
+                label="ROI"
+                value={`${Math.round(m.roi * 100)}%`}
+                tone={m.roi >= 0.3 ? "good" : m.roi >= 0 ? "warning" : "urgent"}
+              />
+            </View>
+          </Card>
+        ))
+      )}
+
+      <SectionTitle title="Prix moyens par marque" subtitle="Utilisé pour le sourcing" />
       {niches.length === 0 ? (
         <Card>
           <Text style={styles.empty}>
@@ -193,4 +239,53 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   venteProfit: { fontSize: 15, fontWeight: "900" },
+  monthCard: { marginBottom: 10 },
+  monthHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  monthLabel: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  monthProfit: { fontSize: 17, fontWeight: "900" },
+  monthRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+    paddingTop: 10,
+  },
 });
+
+function MonthStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "good" | "urgent" | "warning";
+}) {
+  const col =
+    tone === "good"
+      ? colors.good
+      : tone === "urgent"
+      ? colors.urgent
+      : tone === "warning"
+      ? colors.warning
+      : colors.textPrimary;
+  return (
+    <View style={{ flex: 1, alignItems: "center" }}>
+      <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>
+        {label}
+      </Text>
+      <Text style={{ color: col, fontSize: 14, fontWeight: "900", marginTop: 3 }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
