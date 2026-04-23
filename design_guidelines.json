@@ -1,0 +1,184 @@
+{
+  "theme": "dark",
+  "archetype": "Archetype 7: Electric & Neon (Adapted for Premium Tactical Dashboard)",
+  "language": "fr",
+  "design_philosophy": {
+    "fusion": "Mixing high-speed elite trading UI with minimalist sneaker-drop aesthetics. Deep void blacks create the theater, neon accents provide the data triggers.",
+    "emotion": "Command-center focus. Users should feel like elite power sellers with full control over their stock.",
+    "spacing": "Generous interior padding within cards to let data breathe, but tight grids to maximize screen real estate on mobile.",
+    "contrast": "Using matte black backgrounds against stark white text and 1px vibrant neon accents. No muddy gray overlays."
+  },
+  "colors": {
+    "background": {
+      "default": "#050505",
+      "surface": "#111111",
+      "surface_elevated": "#1A1A1A",
+      "surface_glass": "rgba(17, 17, 17, 0.7)"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A"
+    },
+    "border": {
+      "default": "#27272A",
+      "focus": "#39FF14",
+      "glass": "rgba(255, 255, 255, 0.08)"
+    },
+    "status": {
+      "good": "#39FF14",
+      "good_bg": "rgba(57, 255, 20, 0.1)",
+      "urgent": "#FF3366",
+      "urgent_bg": "rgba(255, 51, 102, 0.1)",
+      "warning": "#FF9900",
+      "warning_bg": "rgba(255, 153, 0, 0.1)",
+      "neutral": "#007AFF"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "'Unbounded', sans-serif",
+      "body": "'Manrope', sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "scales": {
+      "h1": "text-4xl tracking-tighter font-black",
+      "h2": "text-2xl tracking-tight font-bold",
+      "h3": "text-xl tracking-tight font-semibold",
+      "body": "text-base font-medium",
+      "small": "text-sm font-medium",
+      "tiny": "text-xs tracking-widest uppercase font-bold"
+    }
+  },
+  "spacing_and_layout": {
+    "mobile_first_grid": "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+    "card_padding": "p-4 sm:p-6",
+    "screen_padding": "px-4 py-6 sm:px-6 sm:py-8",
+    "gap": "gap-4 sm:gap-6",
+    "radius": {
+      "card": "rounded-2xl",
+      "button": "rounded-full",
+      "badge": "rounded-full"
+    },
+    "bottom_nav_height": "pb-24"
+  },
+  "components": {
+    "card": "bg-[#111111] border border-white/5 rounded-2xl shadow-xl shadow-black/50 overflow-hidden",
+    "glass_nav": "fixed bottom-0 left-0 right-0 bg-[#050505]/80 backdrop-blur-2xl border-t border-white/5 pb-safe pt-2 px-4 z-50",
+    "button_primary": "bg-[#39FF14] text-black font-bold rounded-full px-6 py-3 hover:bg-[#32E612] transition-colors flex items-center justify-center",
+    "button_secondary": "bg-[#1A1A1A] text-white border border-white/10 rounded-full px-6 py-3 hover:bg-[#27272A] transition-colors flex items-center justify-center",
+    "badge_good": "px-3 py-1 rounded-full bg-[#39FF14]/10 text-[#39FF14] text-xs font-bold uppercase tracking-wider border border-[#39FF14]/20",
+    "badge_urgent": "px-3 py-1 rounded-full bg-[#FF3366]/10 text-[#FF3366] text-xs font-bold uppercase tracking-wider border border-[#FF3366]/20",
+    "badge_warning": "px-3 py-1 rounded-full bg-[#FF9900]/10 text-[#FF9900] text-xs font-bold uppercase tracking-wider border border-[#FF9900]/20",
+    "input_field": "bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#39FF14] focus:ring-1 focus:ring-[#39FF14] transition-all",
+    "list_item": "flex items-center justify-between p-4 bg-[#111111] border-b border-white/5 hover:bg-[#1A1A1A] transition-colors"
+  },
+  "screens": {
+    "Dashboard": {
+      "description": "The command center. High-density data grid.",
+      "layout": "Bento grid of metric cards.",
+      "key_elements": [
+        "Total Profit (Neon Green giant text)",
+        "Capital Blocked (Warning Orange)",
+        "Urgent Actions ticker/list",
+        "Best/Worst Niche minicards"
+      ]
+    },
+    "Stock": {
+      "description": "Inventory list with actionable insights.",
+      "layout": "Vertical list with swipe actions or quick-tap decision badges.",
+      "key_elements": [
+        "Item image thumbnail",
+        "Score metric",
+        "Decision Badges (SUPPRIMER/BAISSER/GARDER/LIQUIDER)",
+        "Stats (days online, views, favs)"
+      ]
+    },
+    "Sourcing": {
+      "description": "Analyzer tool to determine if an item is worth buying.",
+      "layout": "Form-first layout with instant animated results.",
+      "key_elements": [
+        "Input fields: Brand, Category, Price",
+        "Big Result display: ACHAT FORT (Green) / ACHETER (Blue) / NÉGOCIER (Orange) / IGNORE (Red)"
+      ]
+    },
+    "Ventes": {
+      "description": "Sales history and performance.",
+      "layout": "Timeline list or grouped by month/brand.",
+      "key_elements": [
+        "Average sell price per brand chart (Recharts with Neon Green line)",
+        "Recent sales list"
+      ]
+    },
+    "Niches": {
+      "description": "Performance tracking by brand/category.",
+      "layout": "Ranked list",
+      "key_elements": [
+        "Brand logos or text",
+        "Best/Worst performance indicators",
+        "ROI percentage"
+      ]
+    },
+    "Mode Action": {
+      "description": "Focused to-do list for stock rotation.",
+      "layout": "Checklist style, high contrast.",
+      "key_elements": [
+        "Categorized tasks: Delete, Drop Price, Repost, Relaunch",
+        "Strike-through animation on completion"
+      ]
+    },
+    "Clients": {
+      "description": "CRM for Vinted buyers.",
+      "layout": "List with status indicators.",
+      "key_elements": [
+        "Pseudo, product interested in",
+        "Status badges: Interested (Green), Negotiating (Orange), No Response (Red)"
+      ]
+    },
+    "Retours": {
+      "description": "Returns tracker.",
+      "layout": "Categorized list/chart.",
+      "key_elements": [
+        "Reason categories visualization",
+        "Return cost impact"
+      ]
+    }
+  },
+  "navigation": {
+    "type": "hybrid_bottom_tabs",
+    "primary_tabs": ["Dashboard", "Stock", "Ventes", "Mode Action"],
+    "overflow_menu": {
+      "trigger_label": "Plus",
+      "items": ["Sourcing", "Niches", "Clients", "Retours"],
+      "style": "Glassmorphism bottom sheet or popover modal"
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "stroke-width: 2, sharp edges"
+  },
+  "media": {
+    "splash_background": "https://static.prod-images.emergentagent.com/jobs/ada6002d-5868-4a93-b61c-27b4b8970da2/images/c97590b299f67dd85facdd12705d0d1dfd43032b858bcff0f4958391a2c8b46a.png",
+    "dashboard_texture": "https://static.prod-images.emergentagent.com/jobs/ada6002d-5868-4a93-b61c-27b4b8970da2/images/8702fc8073e688e00233356973fe9229c1ce42b5aa6e39014b08933d57eaa6ed.png",
+    "stock_placeholders": [
+      "https://images.unsplash.com/photo-1485125639709-a60c3a500bf1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHw0fHxtaW5pbWFsaXN0JTIwbW9kZXJuJTIwY2xvdGhpbmclMjBmbGF0bGF5fGVufDB8fHx8MTc3Njk2MDk3MHww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1467043237213-65f2da53396f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwzfHxtaW5pbWFsaXN0JTIwbW9kZXJuJTIwY2xvdGhpbmclMjBmbGF0bGF5fGVufDB8fHx8MTc3Njk2MDk3MHww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwyfHxtaW5pbWFsaXN0JTIwbW9kZXJuJTIwY2xvdGhpbmclMjBmbGF0bGF5fGVufDB8fHx8MTc3Njk2MDk3MHww&ixlib=rb-4.1.0&q=85"
+    ]
+  },
+  "testing": {
+    "requirements": "All interactive elements MUST include a data-testid attribute in kebab-case based on role (e.g. data-testid='tab-dashboard', data-testid='sourcing-submit-button')."
+  },
+  "instructions_to_main_agent": [
+    "Build a mobile-first responsive React app mimicking a native Expo feel.",
+    "Rely entirely on AsyncStorage for data persistence; no external backend is needed.",
+    "Use the layout provided in `screens` and `components` to structure Shadcn and Tailwind configurations.",
+    "Implement the glassmorphism bottom navigation as the primary routing mechanism.",
+    "Use Lucide-React icons extensively to maintain the premium dashboard feel.",
+    "Avoid standard generic fonts; incorporate Unbounded (Google Fonts) for display/headings and Manrope for body text.",
+    "Ensure all text inside badges has a minimum APCA contrast ratio; neon green text on dark green backgrounds should be tested.",
+    "Use provided images for the splash screen, dashboard textural background, and placeholder stock list images.",
+    "Use French language strictly across all screens.",
+    "Ensure the layout has enough bottom padding (`pb-24`) to account for the fixed bottom navigation tab bar."
+  ]
+}
