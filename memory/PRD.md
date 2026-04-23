@@ -33,17 +33,22 @@ src/
   theme/colors.ts              # palette
 ```
 
-## Fonctionnalités livrées (v1.0)
-- **Stock** : CRUD articles, score auto (favoris/vues/profit/jours/défaut/saison/retours), décisions (GARDER/BAISSER/LIQUIDER/SUPPRIMER), règles strictes 7/14/21 jours, repost automatique, compteur de reposts (force delete ≥3), flags "MAUVAISE ANNONCE" / "PRIX TROP ÉLEVÉ".
-- **Ventes** : CA, profit, délai moyen, prix moyens par marque, historique.
-- **Sourcing** : analyse brand/catégorie/prix → verdict ACHAT FORT / ACHETER / NÉGOCIER / IGNORE avec ratio, profit estimé, historique marque.
-- **Niches** : classement auto par marque (score = profit/délai × taux de succès), création manuelle avec statut EN TEST / ACTIVE.
-- **Mode Action** : uniquement les actions urgentes (supprimer, baisser prix avec suggestion, reposter, relancer clients).
-- **Clients** : CRM pseudo/produit/statut (intéressé/négociation/sans réponse), relance auto si sans réponse >24h.
-- **Retours** : raisons (mauvaise taille, défaut non mentionné, non conforme, changement d'avis), impact score marque.
-- **Dashboard** : KPIs profit, articles, capital bloqué, actions urgentes, meilleure/pire niche, alertes globales ("TU ACHÈTES MAL", "MAUVAISE DESCRIPTION", "ANNONCES FAIBLES").
-- **Saisons** auto-détectées (été/hiver/toute), bonus si en saison, malus si hors saison.
-- **Reset** total des données depuis Plus.
+## Fonctionnalités livrées (v1.1)
+- **Stock** : CRUD articles **+ photos base64** (miniatures 56×56 dans Stock, 48×48 en Mode Action, placeholder icône si pas de photo), score auto, décisions (GARDER/BAISSER/LIQUIDER/SUPPRIMER), règles 7/14/21 jours, repost automatique, compteur de reposts (force delete ≥3), flags "MAUVAISE ANNONCE" / "PRIX TROP ÉLEVÉ".
+- **Ventes** : CA, profit, délai moyen, prix moyens par marque, historique **+ "Performances mensuelles" (12 derniers mois avec CA, ventes, délai, ROI %, meilleur mois mis en avant)**.
+- **Sourcing** : analyse brand/catégorie/prix → verdict ACHAT FORT / ACHETER / NÉGOCIER / IGNORE.
+- **Niches** : classement auto par marque + création manuelle EN TEST / ACTIVE.
+- **Mode Action** : uniquement les actions urgentes avec miniatures.
+- **Clients** : CRM pseudo/produit/statut + relance auto >24h.
+- **Retours** : 4 raisons, impact score marque.
+- **Dashboard** : KPIs + alertes globales.
+- **Export CSV** (nouveau) : 3 boutons dans Plus (stock / ventes / retours), partage natif mobile ou téléchargement direct sur web.
+- **Notifications locales** (nouveau) : permission à l'ouverture + notification immédiate si actions urgentes + rappel quotidien planifié à 9h00 (mobile natif uniquement, web = no-op).
+- **Saisons** auto + bonus/malus.
+- **Reset** total des données.
+
+## Dépendances ajoutées v1.1
+`expo-image-picker`, `expo-notifications`, `expo-sharing`, `expo-file-system`
 
 ## Integrations
 Aucune (app 100 % locale AsyncStorage).
