@@ -205,7 +205,7 @@ export default function VentesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingBottom: 80 },
+  container: { paddingHorizontal: 20, paddingBottom: 100 },
   grid: { flexDirection: "row", gap: 12, marginBottom: 12 },
   empty: { color: colors.textMuted, textAlign: "center" },
   brandRow: {

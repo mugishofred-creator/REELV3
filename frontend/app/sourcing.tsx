@@ -7,30 +7,55 @@ import { Card } from "../src/components/Card";
 import { Badge } from "../src/components/Badge";
 import { colors } from "../src/theme/colors";
 import { useData } from "../src/store/context";
-import { sourcingRecommendation, SourcingVerdict } from "../src/utils/logic";
+import { sourcingAnalyze, Sourcing as SourcingVerdict } from "../src/utils/analytics";
 
 const verdictTone = (v: SourcingVerdict) =>
-  v === "ACHAT FORT" ? "good" : v === "ACHETER" ? "info" : v === "NÉGOCIER" ? "warning" : "urgent";
+  v === "ACHETER"
+    ? "good"
+    : v === "OK"
+    ? "info"
+    : v === "NEGOCIER"
+    ? "warning"
+    : v === "REFUSER"
+    ? "urgent"
+    : "neutral";
+
+const verdictLabel = (v: SourcingVerdict) => {
+  switch (v) {
+    case "ACHETER":
+      return "🟢 ACHETER";
+    case "OK":
+      return "🟢 OK";
+    case "NEGOCIER":
+      return "🟡 NÉGOCIER";
+    case "REFUSER":
+      return "🔴 REFUSER";
+    case "DONNEES_INSUFFISANTES":
+      return "⚪ DONNÉES INSUFFISANTES";
+  }
+};
 
 export default function Sourcing() {
   const { ventes } = useData();
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
+  const [fees, setFees] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const result = useMemo(() => {
     if (!submitted) return null;
-    return sourcingRecommendation(
+    return sourcingAnalyze(
       brand.trim(),
       category.trim(),
       Number(buyPrice) || 0,
-      ventes
+      ventes,
+      Number(fees) || 0
     );
-  }, [submitted, brand, category, buyPrice, ventes]);
+  }, [submitted, brand, category, buyPrice, fees, ventes]);
 
   return (
-    <ModalScreen title="Sourcing" subtitle="Dois-je acheter cet article ?">
+    <ModalScreen title="Sourcing" subtitle="Dois-je acheter ?">
       <ScrollView contentContainerStyle={styles.content} testID="sourcing-scroll">
         <Input
           label="Marque"
@@ -39,7 +64,7 @@ export default function Sourcing() {
             setBrand(v);
             setSubmitted(false);
           }}
-          placeholder="Ex: Nike"
+          placeholder="Ex: Carhartt"
           testID="sourcing-brand"
         />
         <Input
@@ -49,7 +74,7 @@ export default function Sourcing() {
             setCategory(v);
             setSubmitted(false);
           }}
-          placeholder="Ex: hoodie"
+          placeholder="Ex: cargo, workwear…"
           testID="sourcing-category"
         />
         <Input
@@ -63,6 +88,17 @@ export default function Sourcing() {
           placeholder="0"
           testID="sourcing-price"
         />
+        <Input
+          label="Frais estimés (€) — optionnel"
+          value={fees}
+          onChangeText={(v) => {
+            setFees(v);
+            setSubmitted(false);
+          }}
+          keyboardType="numeric"
+          placeholder="0"
+          testID="sourcing-fees"
+        />
 
         <Button
           label="Analyser"
@@ -73,53 +109,70 @@ export default function Sourcing() {
 
         {result && (
           <Card style={styles.result} testID="sourcing-result">
-            <Badge label={result.verdict} tone={verdictTone(result.verdict)} />
-            <Text style={styles.verdictText}>
-              {result.verdict === "ACHAT FORT" &&
-                "💎 Grosse opportunité. Achète tout de suite."}
-              {result.verdict === "ACHETER" &&
-                "✅ Bon ratio, achat recommandé."}
-              {result.verdict === "NÉGOCIER" &&
-                "⚠ Marge faible — négocie le prix."}
-              {result.verdict === "IGNORE" &&
-                "✗ Rentabilité insuffisante. Passe."}
-            </Text>
+            <Badge label={verdictLabel(result.verdict)} tone={verdictTone(result.verdict)} />
+            <Text style={styles.verdictText}>{result.reason}</Text>
 
             <View style={styles.stats}>
               <Row
-                label="Prix vente moyen"
-                value={
-                  result.avgSell > 0
-                    ? `${result.avgSell.toFixed(0)} €`
-                    : "Aucune donnée"
+                label="Échantillon"
+                value={`${result.sampleSize} vente${result.sampleSize > 1 ? "s" : ""}`}
+                tone={
+                  result.sampleSize === 0
+                    ? "urgent"
+                    : result.sampleSize < 3
+                    ? "warning"
+                    : "good"
                 }
               />
               <Row
-                label="Délai moyen"
-                value={
-                  result.avgDelay > 0 ? `${result.avgDelay.toFixed(0)} j` : "—"
-                }
+                label="Prix moyen marque"
+                value={result.avgSell > 0 ? `${result.avgSell.toFixed(0)} €` : "—"}
               />
               <Row
                 label="Profit estimé"
-                value={`${result.profit.toFixed(0)} €`}
-                tone={result.profit > 5 ? "good" : "urgent"}
+                value={
+                  result.profit === null ? "—" : `${result.profit.toFixed(0)} €`
+                }
+                tone={
+                  result.profit === null
+                    ? "neutral"
+                    : result.profit > 10
+                    ? "good"
+                    : result.profit >= 0
+                    ? "warning"
+                    : "urgent"
+                }
               />
               <Row
-                label="Ratio achat/vente"
-                value={
-                  result.avgSell > 0
-                    ? `${Math.round(result.ratio * 100)}%`
-                    : "—"
+                label="Score sourcing"
+                value={`${result.score} / 100`}
+                tone={
+                  result.score >= 70 ? "good" : result.score >= 40 ? "warning" : "urgent"
                 }
-                tone={result.ratio < 0.5 ? "good" : "warning"}
+              />
+              <Row
+                label="Bonus catégorie"
+                value={
+                  result.categoryBonus > 30
+                    ? "Catégorie forte (+40)"
+                    : result.categoryBonus < 0
+                    ? "Catégorie faible (−10)"
+                    : "Neutre"
+                }
+                tone={
+                  result.categoryBonus > 30
+                    ? "good"
+                    : result.categoryBonus < 0
+                    ? "urgent"
+                    : "neutral"
+                }
               />
             </View>
           </Card>
         )}
 
         <Text style={styles.hint}>
-          Conseil : enregistre tes ventes pour que le sourcing devienne plus précis. Sans historique, l'app te recommande de négocier par défaut.
+          Règle : rotation &gt; marge. Si marge &lt; 5€ → négocie. Si marge &lt; 0 → refuse. Catégories fortes : Carhartt, Dickies, workwear, Levi's, Patagonia.
         </Text>
       </ScrollView>
     </ModalScreen>
@@ -133,7 +186,7 @@ function Row({
 }: {
   label: string;
   value: string;
-  tone?: "good" | "urgent" | "warning";
+  tone?: "good" | "urgent" | "warning" | "neutral";
 }) {
   const col =
     tone === "good"
@@ -152,11 +205,11 @@ function Row({
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 40 },
+  content: { padding: 20, paddingBottom: 60 },
   result: { marginTop: 20, gap: 10 },
   verdictText: {
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     marginTop: 12,
     lineHeight: 22,

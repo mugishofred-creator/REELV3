@@ -76,8 +76,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0A0A0A",
     borderTopColor: colors.borderSoft,
     borderTopWidth: 1,
-    height: Platform.select({ ios: 88, default: 68 }),
-    paddingBottom: Platform.select({ ios: 28, default: 8 }),
+    height: Platform.select({ ios: 88, default: 78 }),
+    paddingBottom: Platform.select({ ios: 28, default: 16 }),
+    paddingTop: 6,
   },
   label: {
     fontSize: 10,

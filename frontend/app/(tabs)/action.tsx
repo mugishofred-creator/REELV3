@@ -14,6 +14,7 @@ import {
   forceDelete,
   suggestedPrice,
 } from "../../src/utils/logic";
+import { analyzeItem } from "../../src/utils/analytics";
 
 export default function ActionScreen() {
   const { stock, ventes, retours, clients, deleteStock, updateStock, updateClient } =
@@ -24,16 +25,16 @@ export default function ActionScreen() {
     const toDrop: { item: StockItem; suggested: number }[] = [];
     const toRepost: StockItem[] = [];
     stock.forEach((item) => {
-      const score = computeScore(item, retours);
-      const decision = computeDecision(item, score);
-      if (decision === "SUPPRIMER" || forceDelete(item)) {
+      const a = analyzeItem(item, ventes, retours);
+      if (a.action === "SUPPRIMER" || forceDelete(item)) {
         toDelete.push(item);
-      } else if (decision === "BAISSER" || decision === "LIQUIDER") {
-        toDrop.push({
-          item,
-          suggested: suggestedPrice(item, ventes),
-        });
-      } else if (shouldRepost(item)) {
+      } else if (
+        a.action === "BAISSER" ||
+        a.action === "BAISSE_IMMEDIATE" ||
+        a.action === "LIQUIDER"
+      ) {
+        toDrop.push({ item, suggested: suggestedPrice(item, ventes) });
+      } else if (a.action === "REPOST" || shouldRepost(item)) {
         toRepost.push(item);
       }
     });
@@ -211,7 +212,7 @@ export default function ActionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingBottom: 80 },
+  container: { paddingHorizontal: 20, paddingBottom: 100 },
   card: { marginBottom: 12 },
   rowHead: {
     flexDirection: "row",

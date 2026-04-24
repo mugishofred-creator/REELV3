@@ -25,9 +25,18 @@ import {
   suggestedPrice,
   Decision,
 } from "../../src/utils/logic";
+import { analyzeItem, Action } from "../../src/utils/analytics";
 
-const decisionTone = (d: Decision) =>
-  d === "GARDER" ? "good" : d === "BAISSER" ? "warning" : "urgent";
+const decisionTone = (d: Action) =>
+  d === "GARDER"
+    ? "good"
+    : d === "ANALYSE"
+    ? "info"
+    : d === "BAISSER" || d === "REPOST"
+    ? "warning"
+    : "urgent";
+
+const actionLabel = (d: Action) => d.replace("_", " ");
 
 export default function StockScreen() {
   const router = useRouter();
@@ -38,20 +47,31 @@ export default function StockScreen() {
   const enriched = useMemo(
     () =>
       stock.map((item) => {
-        const score = computeScore(item, retours);
-        const decision = computeDecision(item, score);
-        const flag = listingFlag(item);
-        const repost = shouldRepost(item);
-        const forced = forceDelete(item);
-        const suggest = suggestedPrice(item, ventes);
-        return { item, score, decision, flag, repost, forced, suggest };
+        const a = analyzeItem(item, ventes, retours);
+        return {
+          item,
+          score: a.score,
+          decision: a.action,
+          flag: listingFlag(item),
+          repost: shouldRepost(item),
+          forced: forceDelete(item),
+          suggest: suggestedPrice(item, ventes),
+          time: a.time,
+          traction: a.traction,
+          boost: a.boost,
+          profit: a.estimatedProfit,
+        };
       }),
     [stock, retours, ventes]
   );
 
   const filtered = enriched.filter((e) => {
     if (filter === "urgent")
-      return e.decision === "SUPPRIMER" || e.decision === "LIQUIDER";
+      return (
+        e.decision === "SUPPRIMER" ||
+        e.decision === "LIQUIDER" ||
+        e.decision === "BAISSE_IMMEDIATE"
+      );
     if (filter === "ok") return e.decision === "GARDER";
     return true;
   });
@@ -127,7 +147,7 @@ export default function StockScreen() {
         </Card>
       ) : (
         filtered.map(
-          ({ item, score, decision, flag, repost: rp, forced, suggest }) => (
+          ({ item, score, decision, flag, repost: rp, forced, suggest, time, boost, profit }) => (
             <Card key={item.id} style={styles.itemCard} testID={`stock-item-${item.id}`}>
               <View style={styles.itemHeader}>
                 <Thumb uri={item.image} size={56} />
@@ -137,12 +157,12 @@ export default function StockScreen() {
                     {item.brand} • {item.category}
                   </Text>
                 </View>
-                <Badge label={decision} tone={decisionTone(decision)} />
+                <Badge label={actionLabel(decision)} tone={decisionTone(decision)} />
               </View>
 
               <View style={styles.statsRow}>
-                <Stat label="Score" value={`${score}`} tone={score >= 10 ? "good" : score < 0 ? "urgent" : "warning"} />
-                <Stat label="Jours" value={`${item.daysOnline}`} />
+                <Stat label="Score" value={`${score}`} tone={score >= 50 ? "good" : score < 25 ? "urgent" : "warning"} />
+                <Stat label={time.days >= 1 ? "Jours" : "Heures"} value={time.days >= 1 ? `${time.days.toFixed(0)}` : `${time.hours.toFixed(0)}h`} />
                 <Stat label="Vues" value={`${item.views}`} />
                 <Stat label="❤" value={`${item.favorites}`} />
               </View>
@@ -150,12 +170,25 @@ export default function StockScreen() {
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>
                   Achat{" "}
-                  <Text style={styles.priceValue}>{item.buyPrice}€</Text>
+                  <Text style={styles.priceValue}>
+                    {item.buyPrice > 0 ? `${item.buyPrice}€` : "—"}
+                  </Text>
                 </Text>
                 <Text style={styles.priceLabel}>
                   Vente{" "}
                   <Text style={styles.priceValue}>{item.sellPrice}€</Text>
                 </Text>
+                {profit !== null && (
+                  <Text style={styles.priceLabel}>
+                    Bénéf{" "}
+                    <Text style={[styles.priceValue, { color: profit >= 0 ? colors.good : colors.urgent }]}>
+                      {profit >= 0 ? "+" : ""}{profit.toFixed(0)}€
+                    </Text>
+                  </Text>
+                )}
+                {profit === null && item.buyPrice <= 0 && (
+                  <Text style={styles.priceLabel}>Coût inconnu</Text>
+                )}
                 {suggest > 0 && suggest !== item.sellPrice && (
                   <Text style={styles.priceLabel}>
                     Suggéré{" "}
@@ -167,6 +200,9 @@ export default function StockScreen() {
               </View>
 
               <View style={styles.badgesRow}>
+                {boost.verdict === "BOOST" && <Badge label="🟢 Booster" tone="good" />}
+                {boost.verdict === "ATTENDRE" && <Badge label="🟡 Attendre boost" tone="warning" />}
+                {boost.verdict === "NO_BOOST" && <Badge label="🔴 Ne pas booster" tone="urgent" />}
                 {item.defect && <Badge label="Défaut" tone="urgent" />}
                 {flag && <Badge label={flag} tone="warning" />}
                 {rp && !forced && <Badge label="À reposter" tone="info" />}
@@ -174,10 +210,6 @@ export default function StockScreen() {
                 {item.repostCount > 0 && (
                   <Badge label={`Repost x${item.repostCount}`} tone="neutral" />
                 )}
-                <Badge
-                  label={item.season === "ete" ? "Été" : item.season === "hiver" ? "Hiver" : "Toutes"}
-                  tone="neutral"
-                />
               </View>
 
               <View style={styles.actions}>
@@ -251,7 +283,7 @@ const stStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingBottom: 80 },
+  container: { paddingHorizontal: 20, paddingBottom: 100 },
   addBtn: {
     width: 40,
     height: 40,

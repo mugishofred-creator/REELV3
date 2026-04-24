@@ -13,6 +13,7 @@ import {
   applyRestore,
   countPayload,
 } from "../../src/utils/backup";
+import { importCsvBackup } from "../../src/utils/csvImport";
 
 const MENU = [
   {
@@ -123,6 +124,28 @@ export default function PlusScreen() {
       );
     } catch {
       Alert.alert("Erreur", "Impossible de restaurer la sauvegarde.");
+    }
+  };
+
+  const onImportCsv = async () => {
+    try {
+      const report = await importCsvBackup();
+      if (report.error === "cancelled") return;
+      if (report.error === "empty") {
+        Alert.alert("CSV vide", "Aucune ligne lisible dans ce fichier.");
+        return;
+      }
+      if (report.error === "parse") {
+        Alert.alert("Erreur", "Impossible de lire le CSV.");
+        return;
+      }
+      await reloadFromStorage();
+      Alert.alert(
+        "✓ Import terminé",
+        `${report.stockAdded} article(s) + ${report.ventesAdded} vente(s) ajoutés.\n${report.ignored} ligne(s) ignorée(s) sur ${report.total}.`
+      );
+    } catch {
+      Alert.alert("Erreur", "Impossible d'importer le CSV.");
     }
   };
 
@@ -255,7 +278,7 @@ function ExportRow({
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingBottom: 80 },
+  container: { paddingHorizontal: 20, paddingBottom: 100 },
   item: {
     flexDirection: "row",
     alignItems: "center",

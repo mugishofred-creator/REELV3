@@ -1,0 +1,39 @@
+{
+  "summary": "Frontend-only smoke test of Vinted Manager v2.0 enhancements. Dashboard KPIs, Sourcing improvements (DONNEES_INSUFFISANTES + category bonus), Stock ANALYSE badge, profit calc, and tab-bar sizing all work as expected. Found one blocking bug: Plus tab Import CSV button is missing from the UI despite handler being implemented.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/(tabs)/plus.tsx",
+        "issue": "Import CSV button is missing in the UI. The `onImportCsv` handler is declared (line ~130) but no TouchableOpacity / Card with testID='import-csv' is rendered. 'Import CSV' section is entirely absent from the Plus screen JSX. Required testID `import-csv` cannot be found.",
+        "testID": "import-csv",
+        "priority": "HIGH"
+      },
+      {
+        "component": "app/(tabs)/stock.tsx + src/utils/analytics.ts",
+        "issue": "Fresh items (daysOnline=0, heures<2) always display 'Jours 1' instead of 'Heures Xh'. Root cause: in analytics.ts `timeSincePost`, `days = Math.max(1, rawHours/24)` floors days at 1, so the condition `time.days >= 1 ? 'Jours' : 'Heures'` in stock.tsx line 165 always resolves to 'Jours'. The 'Heures Xh' branch is unreachable. Recommend using `t.phase === 'init' || t.phase === 'heures'` or `rawHours < 24` check instead.",
+        "testID": "stock-item-*",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_5.json"],
+  "action_items": [
+    "Add the missing 'Import CSV' section + TouchableOpacity/Card with testID='import-csv' in app/(tabs)/plus.tsx, wired to the existing `onImportCsv` handler. Place it near the Export CSV section (e.g. a new SectionTitle 'Import CSV' with a card using icon 'cloud-upload-outline' or similar).",
+    "Fix the 'Jours/Heures' label in stock.tsx so fresh articles show 'Heures Xh'. Either expose raw hours in TimeInfo or switch the condition to use `t.phase` (e.g. `t.phase === 'heures' || t.phase === 'init'`)."
+  ],
+  "critical_code_review_comments": [
+    "plus.tsx: `onImportCsv` is dead code in UI — handler defined but never referenced in JSX. Likely an unfinished task when adding CSV import feature.",
+    "analytics.ts `timeSincePost` uses `Math.max(1, rawHours/24)` for `days`, which correctly protects against div-by-zero but destroys the sub-day granularity used by the UI. Consider keeping `days` as raw and adding a separate `safeDays` for score math."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "85%"},
+  "seed_data_creation": "Transient test articles (TEST Pantalon Carhartt 13/25€ and TEST NoBuy Nike 0/20€) were created to validate profit/coût inconnu/ANALYSE badge and deleted at the end of the run. Final stock: 0 items.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Public URL: https://vinted-stock-hub.preview.emergentagent.com (from frontend/.env EXPO_PACKAGER_HOSTNAME — the URL mentioned in the request is stale). Dashboard all testIDs OK. Sourcing DONNEES_INSUFFISANTES, leggings (−10), workwear (+40) all verified OK. Stock ANALYSE badge appears when adding a fresh item via /stock-new with daysOnline=0. Bénéf calc correct. Tab bar height ~78px on web preview. Only bug left is: Plus tab missing Import CSV button wiring.",
+  "rca_of_issue": "Plus Import CSV bug RCA — In /app/frontend/app/(tabs)/plus.tsx, the developer imported `importCsvBackup`, implemented `onImportCsv` wrapper with proper error handling (lines ~130-150), but never added the corresponding `<TouchableOpacity testID=\"import-csv\" onPress={onImportCsv}>` Card in the returned JSX tree. The Plus screen only renders: MENU items (sourcing/niches/clients/retours), Sauvegarde & Restauration (backup-create, backup-restore), Export CSV (export-stock/ventes/retours), and reset. Reproduction: open app → Plus tab → scroll → no Import CSV section visible. Mitigation: add a SectionTitle 'Import CSV' and a Card/TouchableOpacity onPress={onImportCsv} with testID='import-csv'."
+}

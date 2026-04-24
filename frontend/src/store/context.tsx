@@ -24,6 +24,9 @@ export interface StockItem {
   sold: boolean;
   createdAt: string;
   image?: string; // base64 data URI
+  datePublication?: string; // ISO date of Vinted listing
+  fees?: number; // frais Vinted estimés
+  boostCost?: number; // coût du boost payé
 }
 
 export interface Vente {
@@ -34,6 +37,8 @@ export interface Vente {
   sellPrice: number;
   delay: number;
   date: string;
+  fees?: number;
+  boostCost?: number;
 }
 
 export interface Client {
