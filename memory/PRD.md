@@ -33,28 +33,59 @@ src/
   theme/colors.ts              # palette
 ```
 
-## Fonctionnalités livrées (v1.2)
-- **Stock** : CRUD articles **+ photos base64** (miniatures 56×56 dans Stock, 48×48 en Mode Action, placeholder icône si pas de photo), score auto, décisions (GARDER/BAISSER/LIQUIDER/SUPPRIMER), règles 7/14/21 jours, repost automatique, compteur de reposts (force delete ≥3), flags "MAUVAISE ANNONCE" / "PRIX TROP ÉLEVÉ".
-- **Ventes** : CA, profit, délai moyen, prix moyens par marque, historique **+ "Performances mensuelles" (12 derniers mois avec CA, ventes, délai, ROI %, meilleur mois mis en avant)**.
-- **Sourcing** : analyse brand/catégorie/prix → verdict ACHAT FORT / ACHETER / NÉGOCIER / IGNORE.
-- **Niches** : classement auto par marque + création manuelle EN TEST / ACTIVE.
-- **Mode Action** : uniquement les actions urgentes avec miniatures.
-- **Clients** : CRM pseudo/produit/statut + relance auto >24h.
-- **Retours** : 4 raisons, impact score marque.
-- **Dashboard** : KPIs + alertes globales.
-- **Export CSV** : 3 boutons dans Plus (stock / ventes / retours), partage natif mobile ou téléchargement direct sur web.
-- **Notifications locales** : permission à l'ouverture + notification immédiate si actions urgentes + rappel quotidien à 9h00 + rappel hebdo backup le dimanche 20h (mobile natif uniquement, web = no-op).
-- **💾 Sauvegarde & Restauration (v1.2)** :
-  - Export JSON complet `vinted-manager-backup-YYYY-MM-DD.json` (stock + ventes + clients + retours + niches, incluant les photos)
-  - Partage natif mobile (iCloud, Drive, WhatsApp, mail…) ou téléchargement direct sur web
-  - Restauration depuis fichier JSON avec choix "Fusionner" (par id) ou "Remplacer" tout
-  - Validation du schéma (rejette les fichiers non Vinted Manager)
-  - Use-case : changer de téléphone ou désinstaller l'app sans perdre de données
-- **Saisons** auto + bonus/malus.
-- **Reset** total des données.
+## Fonctionnalités livrées (v2.0 — Décisions fiables)
 
-## Dépendances ajoutées v1.2
-`expo-document-picker` (en plus de v1.1 : `expo-image-picker`, `expo-notifications`, `expo-sharing`, `expo-file-system`)
+### Moteur d'analyse hybride `analytics.ts` (NOUVEAU)
+- **Dimension temps sécurisée** : `datePublication` → heures/jours depuis post, avec garde-fous (min 1h, min 1j, capping vues/h à 50 et fav/h à 5)
+- **Phase "analyse en cours"** si publication < 2h → aucune décision forte (badge `ANALYSE` affiché)
+- **Traction** : vues/h, fav/h, vues/j, fav/j, ratio favoris/vues (si vues >= 10 seulement)
+- **Score hybride /100** : 60 pts heures (vues/h, fav/h, ratio) + 40 pts jours (vues/j, fav/j, vendu <3j), adaptation temporelle par phase, pénalité -20 si >5j sans vente, -5/retour sur la marque
+- **Actions automatiques** :
+  - 🔴 SUPPRIMER (>=21j ou score < 10)
+  - 🔴 LIQUIDER (>=14j, ou >=7j faible traction, ou ancien + faible)
+  - 🟠 BAISSE IMMÉDIATE (>5 fav sans vente >=2j)
+  - 🟠 BAISSER (vues hautes peu fav, ou >=5j score faible)
+  - 🟡 REPOST (peu vues bon ratio)
+  - 🟢 GARDER (score >=50)
+  - ⚪ ANALYSE (<2h)
+- **Boost recommendation** 🟢/🟡/🔴 : conditions strictes (heures 2-24h, vues>=30, fav>=5, ratio>12%, score>=45, prix cohérent)
+- **Sourcing amélioré** :
+  - "DONNÉES INSUFFISANTES" si aucune vente historique
+  - Filtre catégorie : Carhartt/Dickies/workwear/Levi's/Patagonia = +40, hoodie/leggings/SHEIN/Primark = -10
+  - Score /100 = marge 40 + catégorie 40 + rotation 20
+  - Verdicts : ACHETER > OK > NÉGOCIER > REFUSER (basé sur marge >10/>5/<5/<0)
+
+### Dashboard enrichi
+- **KPIs** : CA total, Bénéfice (+ROI%), Délai moyen, Stock bloqué
+- **Décisions à prendre** : À baisser, À liquider, Boostables, Clients relance
+- **Niches** : meilleure / pire marque
+- **Actions prioritaires** : top 3 articles à traiter
+
+### Garde-fous (tests 1 à 10)
+- Vues = 0 → pas de crash, ratio non calculé
+- Prix achat manquant → "Coût inconnu", pas de bénéfice
+- Division par zéro → protégée (min 1h/1j)
+- Aucune décision forte < 2h → badge ANALYSE
+- Bénéfice jamais négatif si sellPrice > buyPrice
+- CA toujours > 0 si vente enregistrée
+
+### Import CSV (NOUVEAU)
+- Bouton "Importer un CSV" dans Plus
+- Colonnes : `nom,marque,categorie,date_publication,date_vente,prix_achat,prix_vente,frais,vues,favoris`
+- Si `date_vente` présente → crée Vente, sinon Stock
+- Dédupe automatique (nom+marque+prix+date)
+- Lignes invalides ignorées sans planter
+- Rapport détaillé : X ajoutés, Y ignorés
+
+### UI Samsung
+- Tab bar Android : hauteur 78px, padding-bottom 16px
+- Scroll content padding-bottom 100px pour ne plus cacher les boutons
+
+## Fonctionnalités v1.2 conservées
+- Photos base64 articles, Export CSV, Notifications locales (quotidienne 9h + backup hebdo 20h dimanche), Sauvegarde/Restauration JSON complète avec fusion/remplacement.
+
+## Dépendances
+`expo-document-picker`, `expo-image-picker`, `expo-notifications`, `expo-sharing`, `expo-file-system`
 
 ## Integrations
 Aucune (app 100 % locale AsyncStorage).

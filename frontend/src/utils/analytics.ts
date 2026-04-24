@@ -4,6 +4,7 @@ import type { StockItem, Vente, Retour } from "../store/context";
 export interface TimeInfo {
   hours: number;
   days: number;
+  rawHours: number;
   reliable: boolean;       // >= 2h since publication
   phase: "init" | "heures" | "mix" | "jours" | "vieux";
 }
@@ -31,7 +32,7 @@ export function timeSincePost(item: StockItem, now: Date = new Date()): TimeInfo
   else if (rawHours < 72) phase = "mix";
   else if (rawHours < 120) phase = "jours";
   else phase = "vieux";
-  return { hours, days, reliable, phase };
+  return { hours, days, rawHours, reliable, phase };
 }
 
 // ---------- TRACTION ----------

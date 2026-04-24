@@ -216,6 +216,24 @@ export default function PlusScreen() {
       </Text>
 
 
+      <SectionTitle title="Import CSV" subtitle="Historique Vinted ou fichier perso" />
+
+      <TouchableOpacity onPress={onImportCsv} activeOpacity={0.85} testID="import-csv">
+        <Card style={styles.item}>
+          <View style={[styles.icon, { backgroundColor: `${colors.warning}22`, borderColor: `${colors.warning}55` }]}>
+            <Ionicons name="document-text-outline" size={22} color={colors.warning} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Importer un CSV</Text>
+            <Text style={styles.desc}>
+              Colonnes: nom, marque, categorie, date_publication, date_vente, prix_achat, prix_vente, frais, vues, favoris
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+        </Card>
+      </TouchableOpacity>
+
+
       <SectionTitle title="Export CSV" subtitle="Sauvegarde tes données" />
 
       <ExportRow

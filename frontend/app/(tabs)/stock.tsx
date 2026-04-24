@@ -162,7 +162,7 @@ export default function StockScreen() {
 
               <View style={styles.statsRow}>
                 <Stat label="Score" value={`${score}`} tone={score >= 50 ? "good" : score < 25 ? "urgent" : "warning"} />
-                <Stat label={time.days >= 1 ? "Jours" : "Heures"} value={time.days >= 1 ? `${time.days.toFixed(0)}` : `${time.hours.toFixed(0)}h`} />
+                <Stat label={time.rawHours < 24 ? "Heures" : "Jours"} value={time.rawHours < 24 ? `${Math.max(0, Math.round(time.rawHours))}h` : `${time.days.toFixed(0)}`} />
                 <Stat label="Vues" value={`${item.views}`} />
                 <Stat label="❤" value={`${item.favorites}`} />
               </View>
