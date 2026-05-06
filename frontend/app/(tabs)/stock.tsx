@@ -16,25 +16,34 @@ import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
 import { Thumb } from "../../src/components/Thumb";
+import { ProgressBar } from "../../src/components/ProgressBar";
 import { colors } from "../../src/theme/colors";
 import { listingFlag, shouldRepost, forceDelete, suggestedPrice } from "../../src/utils/logic";
 import { type Action, type ItemAnalysis } from "../../src/utils/analytics";
+import { saleProbability, probColor, probLabel } from "../../src/utils/saleProbability";
 import { useAnalyzedStock, type EnrichedItem } from "../../src/hooks/useAnalyzedStock";
-
-const decisionTone = (d: Action) =>
-  d === "GARDER"
-    ? "good"
-    : d === "ANALYSE"
-    ? "info"
-    : d === "BAISSER" || d === "REPOST"
-    ? "warning"
-    : "urgent";
-
-const actionLabel = (d: Action) => d.replace("_", " ");
 
 type Filter = "all" | "urgent" | "ok";
 
-interface StockCardProps {
+const ACTION_RANK: Record<string, number> = {
+  SUPPRIMER: 0, LIQUIDER: 1, BAISSE_IMMEDIATE: 2,
+  BAISSER: 3, REPOST: 4, GARDER: 5, ANALYSE: 6,
+};
+
+const URGENCY_COLOR: Record<string, string> = {
+  SUPPRIMER: colors.urgent, LIQUIDER: colors.urgent,
+  BAISSE_IMMEDIATE: colors.warning, BAISSER: colors.warning,
+  REPOST: colors.info, GARDER: colors.good, ANALYSE: colors.textMuted,
+};
+
+function actionTone(d: Action): "good" | "info" | "warning" | "urgent" {
+  if (d === "GARDER") return "good";
+  if (d === "ANALYSE") return "info";
+  if (d === "BAISSER" || d === "REPOST") return "warning";
+  return "urgent";
+}
+
+interface CardProps {
   item: StockItem;
   analysis: ItemAnalysis;
   ventes: ReturnType<typeof useData>["ventes"];
@@ -44,128 +53,90 @@ interface StockCardProps {
 }
 
 const StockCard = memo(function StockCard({
-  item,
-  analysis,
-  ventes,
-  onSold,
-  onRepost,
-  onDelete,
-}: StockCardProps) {
-  const { score, action: decision, time, boost, estimatedProfit: profit } = analysis;
+  item, analysis, ventes, onSold, onRepost, onDelete,
+}: CardProps) {
+  const { score, action, time, boost, estimatedProfit: profit } = analysis;
   const flag = listingFlag(item);
   const rp = shouldRepost(item);
   const forced = forceDelete(item);
   const suggest = suggestedPrice(item, ventes);
+  const prob = saleProbability(item, ventes, analysis);
+  const pColor = probColor(prob);
+  const urgencyColor = URGENCY_COLOR[action] ?? colors.textMuted;
 
   return (
-    <Card style={styles.itemCard} testID={`stock-item-${item.id}`}>
-      <View style={styles.itemHeader}>
-        <Thumb uri={item.image} size={56} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.itemName}>{item.name}</Text>
-          <Text style={styles.itemBrand}>
-            {item.brand} • {item.category}
+    <View style={styles.cardWrap} testID={`stock-item-${item.id}`}>
+      <View style={[styles.urgencyStripe, { backgroundColor: urgencyColor }]} />
+      <Card style={styles.cardInner}>
+        {/* Header */}
+        <View style={styles.itemHeader}>
+          <Thumb uri={item.image} size={52} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.itemBrand}>{item.brand} · {item.category}</Text>
+          </View>
+          <Badge label={action.replace("_", " ")} tone={actionTone(action)} />
+        </View>
+
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          <Stat label="Score" value={`${score}`} tone={score >= 50 ? "good" : score < 25 ? "urgent" : "warning"} />
+          <Stat
+            label={time.rawHours < 24 ? "Heures" : "Jours"}
+            value={time.rawHours < 24 ? `${Math.max(0, Math.round(time.rawHours))}h` : `${time.days.toFixed(0)}j`}
+          />
+          <Stat label="Vues" value={`${item.views}`} />
+          <Stat label="❤" value={`${item.favorites}`} />
+        </View>
+
+        {/* Probability bar */}
+        <View style={styles.probRow}>
+          <Text style={styles.probLabel}>
+            Probabilité vente:{" "}
+            <Text style={[styles.probValue, { color: pColor }]}>
+              {probLabel(prob)} {prob}%
+            </Text>
           </Text>
         </View>
-        <Badge label={actionLabel(decision)} tone={decisionTone(decision)} />
-      </View>
+        <ProgressBar progress={prob / 100} color={pColor} height={4} />
 
-      <View style={styles.statsRow}>
-        <Stat
-          label="Score"
-          value={`${score}`}
-          tone={score >= 50 ? "good" : score < 25 ? "urgent" : "warning"}
-        />
-        <Stat
-          label={time.rawHours < 24 ? "Heures" : "Jours"}
-          value={
-            time.rawHours < 24
-              ? `${Math.max(0, Math.round(time.rawHours))}h`
-              : `${time.days.toFixed(0)}`
-          }
-        />
-        <Stat label="Vues" value={`${item.views}`} />
-        <Stat label="❤" value={`${item.favorites}`} />
-      </View>
+        {/* Prices */}
+        <View style={styles.priceRow}>
+          <PricePill label="Achat" value={item.buyPrice > 0 ? `${item.buyPrice}€` : "—"} />
+          <PricePill label="Vente" value={`${item.sellPrice}€`} />
+          {profit !== null && (
+            <PricePill
+              label="Bénéf"
+              value={`${profit >= 0 ? "+" : ""}${profit.toFixed(0)}€`}
+              color={profit >= 0 ? colors.good : colors.urgent}
+            />
+          )}
+          {suggest > 0 && suggest !== item.sellPrice && (
+            <PricePill label="Suggéré" value={`${suggest}€`} color={colors.good} />
+          )}
+        </View>
 
-      <View style={styles.priceRow}>
-        <Text style={styles.priceLabel}>
-          Achat{" "}
-          <Text style={styles.priceValue}>
-            {item.buyPrice > 0 ? `${item.buyPrice}€` : "—"}
-          </Text>
-        </Text>
-        <Text style={styles.priceLabel}>
-          Vente <Text style={styles.priceValue}>{item.sellPrice}€</Text>
-        </Text>
-        {profit !== null && (
-          <Text style={styles.priceLabel}>
-            Bénéf{" "}
-            <Text
-              style={[
-                styles.priceValue,
-                { color: profit >= 0 ? colors.good : colors.urgent },
-              ]}
-            >
-              {profit >= 0 ? "+" : ""}
-              {profit.toFixed(0)}€
-            </Text>
-          </Text>
+        {/* Badges */}
+        {(boost.verdict === "BOOST" || item.defect || flag || forced || item.repostCount > 0) && (
+          <View style={styles.badgesRow}>
+            {boost.verdict === "BOOST" && <Badge label="🟢 Booster" tone="good" />}
+            {boost.verdict === "ATTENDRE" && <Badge label="⏳ Attendre boost" tone="warning" />}
+            {item.defect && <Badge label="Défaut" tone="urgent" />}
+            {flag && <Badge label={flag} tone="warning" />}
+            {rp && !forced && <Badge label="À reposter" tone="info" />}
+            {forced && <Badge label="⚠ Forcer suppr." tone="urgent" />}
+            {item.repostCount > 0 && <Badge label={`Repost ×${item.repostCount}`} tone="neutral" />}
+          </View>
         )}
-        {profit === null && item.buyPrice <= 0 && (
-          <Text style={styles.priceLabel}>Coût inconnu</Text>
-        )}
-        {suggest > 0 && suggest !== item.sellPrice && (
-          <Text style={styles.priceLabel}>
-            Suggéré{" "}
-            <Text style={[styles.priceValue, { color: colors.good }]}>
-              {suggest}€
-            </Text>
-          </Text>
-        )}
-      </View>
 
-      <View style={styles.badgesRow}>
-        {boost.verdict === "BOOST" && <Badge label="🟢 Booster" tone="good" />}
-        {boost.verdict === "ATTENDRE" && (
-          <Badge label="🟡 Attendre boost" tone="warning" />
-        )}
-        {boost.verdict === "NO_BOOST" && (
-          <Badge label="🔴 Ne pas booster" tone="urgent" />
-        )}
-        {item.defect && <Badge label="Défaut" tone="urgent" />}
-        {flag && <Badge label={flag} tone="warning" />}
-        {rp && !forced && <Badge label="À reposter" tone="info" />}
-        {forced && <Badge label="Forcer suppression" tone="urgent" />}
-        {item.repostCount > 0 && (
-          <Badge label={`Repost x${item.repostCount}`} tone="neutral" />
-        )}
-      </View>
-
-      <View style={styles.actions}>
-        <Button
-          label="Vendu"
-          variant="primary"
-          onPress={onSold}
-          style={{ flex: 1 }}
-          testID={`stock-sold-${item.id}`}
-        />
-        <Button
-          label="Reposter"
-          variant="secondary"
-          onPress={onRepost}
-          style={{ flex: 1 }}
-          testID={`stock-repost-${item.id}`}
-        />
-        <Button
-          label="Suppr."
-          variant="danger"
-          onPress={onDelete}
-          style={{ flex: 1 }}
-          testID={`stock-delete-${item.id}`}
-        />
-      </View>
-    </Card>
+        {/* Actions */}
+        <View style={styles.actions}>
+          <Button label="✓ Vendu" variant="primary" onPress={onSold} style={{ flex: 1 }} testID={`stock-sold-${item.id}`} />
+          <Button label="↺ Reposter" variant="secondary" onPress={onRepost} style={{ flex: 1 }} testID={`stock-repost-${item.id}`} />
+          <Button label="✕" variant="danger" onPress={onDelete} style={{ minWidth: 44 }} testID={`stock-delete-${item.id}`} />
+        </View>
+      </Card>
+    </View>
   );
 });
 
@@ -178,58 +149,62 @@ export default function StockScreen() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return analyzed.filter(({ item, analysis: a }) => {
-      const matchFilter =
-        filter === "urgent"
-          ? a.action === "SUPPRIMER" ||
-            a.action === "LIQUIDER" ||
-            a.action === "BAISSE_IMMEDIATE"
-          : filter === "ok"
-          ? a.action === "GARDER"
-          : true;
-      const matchSearch =
-        !q ||
-        item.name.toLowerCase().includes(q) ||
-        item.brand.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q);
-      return matchFilter && matchSearch;
-    });
+    return analyzed
+      .filter(({ item, analysis: a }) => {
+        const matchFilter =
+          filter === "urgent"
+            ? a.action === "SUPPRIMER" || a.action === "LIQUIDER" || a.action === "BAISSE_IMMEDIATE"
+            : filter === "ok"
+            ? a.action === "GARDER"
+            : true;
+        const matchSearch =
+          !q ||
+          item.name.toLowerCase().includes(q) ||
+          item.brand.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q);
+        return matchFilter && matchSearch;
+      })
+      .sort(
+        (a, b) =>
+          (ACTION_RANK[a.analysis.action] ?? 9) -
+          (ACTION_RANK[b.analysis.action] ?? 9)
+      );
   }, [analyzed, filter, search]);
 
-  const confirmDelete = (i: StockItem) => {
+  const urgentCount = useMemo(
+    () =>
+      analyzed.filter(
+        ({ analysis: a }) =>
+          a.action === "SUPPRIMER" ||
+          a.action === "LIQUIDER" ||
+          a.action === "BAISSE_IMMEDIATE"
+      ).length,
+    [analyzed]
+  );
+
+  const handleRepost = (i: StockItem) =>
+    updateStock(i.id, { views: 0, favorites: 0, daysOnline: 0, repostCount: (i.repostCount || 0) + 1 });
+
+  const confirmDelete = (i: StockItem) =>
     Alert.alert("Supprimer", `Retirer "${i.name}" du stock ?`, [
       { text: "Annuler", style: "cancel" },
-      {
-        text: "Supprimer",
-        style: "destructive",
-        onPress: () => deleteStock(i.id),
-      },
+      { text: "Supprimer", style: "destructive", onPress: () => deleteStock(i.id) },
     ]);
-  };
 
-  const handleRepost = (i: StockItem) => {
-    updateStock(i.id, {
-      views: 0,
-      favorites: 0,
-      daysOnline: 0,
-      repostCount: (i.repostCount || 0) + 1,
-    });
-  };
-
-  const renderItem = ({ item: enriched }: { item: EnrichedItem }) => (
+  const renderItem = ({ item: e }: { item: EnrichedItem }) => (
     <StockCard
-      item={enriched.item}
-      analysis={enriched.analysis}
+      item={e.item}
+      analysis={e.analysis}
       ventes={ventes}
-      onSold={() => markSold(enriched.item.id)}
-      onRepost={() => handleRepost(enriched.item)}
-      onDelete={() => confirmDelete(enriched.item)}
+      onSold={() => markSold(e.item.id)}
+      onRepost={() => handleRepost(e.item)}
+      onDelete={() => confirmDelete(e.item)}
     />
   );
 
   return (
     <FlatList
-      style={{ flex: 1, backgroundColor: colors.bg }}
+      style={styles.root}
       contentContainerStyle={styles.container}
       testID="stock-scroll"
       data={filtered}
@@ -239,7 +214,7 @@ export default function StockScreen() {
         <>
           <ScreenHeader
             title="Stock"
-            subtitle={`${stock.length} article${stock.length > 1 ? "s" : ""}`}
+            subtitle={`${stock.length} article${stock.length > 1 ? "s" : ""}${urgentCount > 0 ? ` · ${urgentCount} urgent${urgentCount > 1 ? "s" : ""}` : ""}`}
             right={
               <TouchableOpacity
                 onPress={() => router.push("/stock-new")}
@@ -252,17 +227,18 @@ export default function StockScreen() {
           />
 
           <View style={styles.searchRow}>
+            <Ionicons name="search-outline" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
-              placeholder="Rechercher nom, marque, catégorie..."
+              placeholder="Nom, marque, catégorie…"
               placeholderTextColor={colors.textMuted}
               testID="stock-search"
             />
             {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch("")} style={styles.clearBtn}>
-                <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={17} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -275,10 +251,8 @@ export default function StockScreen() {
                 style={[styles.filter, filter === k && styles.filterActive]}
                 testID={`stock-filter-${k}`}
               >
-                <Text
-                  style={[styles.filterText, filter === k && { color: "#000" }]}
-                >
-                  {k === "all" ? "Tous" : k === "urgent" ? "Urgent" : "À garder"}
+                <Text style={[styles.filterText, filter === k && { color: "#000" }]}>
+                  {k === "all" ? "Tous" : k === "urgent" ? `🔴 Urgent${urgentCount > 0 ? ` (${urgentCount})` : ""}` : "✓ Garder"}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -290,14 +264,10 @@ export default function StockScreen() {
           <Text style={styles.empty}>
             {search || filter !== "all"
               ? "Aucun résultat pour ces filtres."
-              : "Aucun article. Ajoute ton premier !"}
+              : "Stock vide — ajoute ton premier article !"}
           </Text>
           {!search && filter === "all" && (
-            <Button
-              label="+ Ajouter un article"
-              onPress={() => router.push("/stock-new")}
-              testID="stock-empty-add"
-            />
+            <Button label="+ Ajouter un article" onPress={() => router.push("/stock-new")} testID="stock-empty-add" />
           )}
         </Card>
       }
@@ -306,23 +276,8 @@ export default function StockScreen() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "good" | "urgent" | "warning";
-}) {
-  const col =
-    tone === "good"
-      ? colors.good
-      : tone === "urgent"
-      ? colors.urgent
-      : tone === "warning"
-      ? colors.warning
-      : colors.textPrimary;
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "good" | "urgent" | "warning" }) {
+  const col = tone === "good" ? colors.good : tone === "urgent" ? colors.urgent : tone === "warning" ? colors.warning : colors.textPrimary;
   return (
     <View style={stStyles.box}>
       <Text style={stStyles.l}>{label}</Text>
@@ -331,99 +286,62 @@ function Stat({
   );
 }
 
+function PricePill({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <View style={ppStyles.wrap}>
+      <Text style={ppStyles.label}>{label}</Text>
+      <Text style={[ppStyles.value, color ? { color } : {}]}>{value}</Text>
+    </View>
+  );
+}
+
 const stStyles = StyleSheet.create({
   box: { flex: 1, alignItems: "center" },
-  l: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  v: { color: colors.textPrimary, fontSize: 16, fontWeight: "900", marginTop: 2 },
+  l: { color: colors.textMuted, fontSize: 9, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
+  v: { color: colors.textPrimary, fontSize: 15, fontWeight: "900", marginTop: 2 },
+});
+
+const ppStyles = StyleSheet.create({
+  wrap: { alignItems: "center", paddingHorizontal: 6, paddingVertical: 4, backgroundColor: colors.surfaceElevated, borderRadius: 8 },
+  label: { color: colors.textMuted, fontSize: 9, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
+  value: { color: colors.textPrimary, fontSize: 13, fontWeight: "900", marginTop: 1 },
 });
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingBottom: 100 },
+  root: { flex: 1, backgroundColor: colors.bg },
+  container: { paddingHorizontal: 16, paddingBottom: 100 },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.good,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.good, alignItems: "center", justifyContent: "center",
   },
   searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 10,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 12, paddingHorizontal: 12, marginBottom: 10,
   },
-  searchInput: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 14,
-    paddingVertical: 10,
-  },
-  clearBtn: { padding: 4 },
-  filters: { flexDirection: "row", gap: 8, marginBottom: 16 },
+  searchInput: { flex: 1, color: colors.textPrimary, fontSize: 14, paddingVertical: 10 },
+  filters: { flexDirection: "row", gap: 8, marginBottom: 14 },
   filter: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
   },
   filterActive: { backgroundColor: colors.good, borderColor: colors.good },
-  filterText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
+  filterText: { color: colors.textSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
   empty: { color: colors.textMuted, textAlign: "center", marginBottom: 16 },
-  itemCard: { marginBottom: 12 },
-  itemHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 14,
-    gap: 12,
-  },
-  itemName: {
-    color: colors.textPrimary,
-    fontSize: 17,
-    fontWeight: "900",
-    letterSpacing: -0.3,
-  },
-  itemBrand: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  cardWrap: { flexDirection: "row", marginBottom: 12, borderRadius: 14, overflow: "hidden" },
+  urgencyStripe: { width: 4 },
+  cardInner: { flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeftWidth: 0 },
+  itemHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
+  itemName: { color: colors.textPrimary, fontSize: 15, fontWeight: "900", letterSpacing: -0.3 },
+  itemBrand: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
   statsRow: {
-    flexDirection: "row",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.borderSoft,
-    marginBottom: 12,
+    flexDirection: "row", paddingVertical: 10,
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.borderSoft, marginBottom: 10,
   },
-  priceRow: {
-    flexDirection: "row",
-    gap: 14,
-    marginBottom: 12,
-    flexWrap: "wrap",
-  },
-  priceLabel: { color: colors.textMuted, fontSize: 12 },
-  priceValue: { color: colors.textPrimary, fontSize: 14, fontWeight: "800" },
-  badgesRow: {
-    flexDirection: "row",
-    gap: 6,
-    flexWrap: "wrap",
-    marginBottom: 12,
-  },
+  probRow: { marginBottom: 4 },
+  probLabel: { color: colors.textMuted, fontSize: 11 },
+  probValue: { fontWeight: "800" },
+  priceRow: { flexDirection: "row", gap: 6, marginTop: 10, marginBottom: 10, flexWrap: "wrap" },
+  badgesRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 10 },
   actions: { flexDirection: "row", gap: 8 },
 });

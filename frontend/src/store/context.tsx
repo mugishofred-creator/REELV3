@@ -23,10 +23,10 @@ export interface StockItem {
   repostCount: number;
   sold: boolean;
   createdAt: string;
-  image?: string; // base64 data URI
-  datePublication?: string; // ISO date of Vinted listing
-  fees?: number; // frais Vinted estimés
-  boostCost?: number; // coût du boost payé
+  image?: string;
+  datePublication?: string;
+  fees?: number;
+  boostCost?: number;
 }
 
 export interface Vente {
@@ -46,7 +46,7 @@ export interface Client {
   pseudo: string;
   product: string;
   status: "interesse" | "negociation" | "sans_reponse";
-  lastContact: string; // ISO
+  lastContact: string;
 }
 
 export interface Retour {
@@ -70,12 +70,27 @@ export interface Niche {
   notes: string;
 }
 
+export interface Goals {
+  monthlyCAGoal: number;
+  monthlyProfitGoal: number;
+  avgDelayGoal: number;
+  weeklyItemsGoal: number;
+}
+
+export const DEFAULT_GOALS: Goals = {
+  monthlyCAGoal: 500,
+  monthlyProfitGoal: 200,
+  avgDelayGoal: 10,
+  weeklyItemsGoal: 5,
+};
+
 type Ctx = {
   stock: StockItem[];
   ventes: Vente[];
   clients: Client[];
   retours: Retour[];
   niches: Niche[];
+  goals: Goals;
   loaded: boolean;
   addStock: (i: Omit<StockItem, "id" | "createdAt" | "season"> & { season?: StockItem["season"] }) => void;
   updateStock: (id: string, patch: Partial<StockItem>) => void;
@@ -90,6 +105,7 @@ type Ctx = {
   addNiche: (n: Omit<Niche, "id">) => void;
   updateNiche: (id: string, patch: Partial<Niche>) => void;
   deleteNiche: (id: string) => void;
+  updateGoals: (patch: Partial<Goals>) => void;
   resetAll: () => void;
   reloadFromStorage: () => Promise<void>;
 };
@@ -105,57 +121,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [retours, setRetours] = useState<Retour[]>([]);
   const [niches, setNiches] = useState<Niche[]>([]);
+  const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const [s, v, c, r, n] = await Promise.all([
+      const [s, v, c, r, n, g] = await Promise.all([
         loadJSON<StockItem[]>(STORAGE_KEYS.stock, []),
         loadJSON<Vente[]>(STORAGE_KEYS.ventes, []),
         loadJSON<Client[]>(STORAGE_KEYS.clients, []),
         loadJSON<Retour[]>(STORAGE_KEYS.retours, []),
         loadJSON<Niche[]>(STORAGE_KEYS.niches, []),
+        loadJSON<Goals>(STORAGE_KEYS.goals, DEFAULT_GOALS),
       ]);
       setStock(s);
       setVentes(v);
       setClients(c);
       setRetours(r);
       setNiches(n);
+      setGoals(g);
       setLoaded(true);
     })();
   }, []);
 
-  useEffect(() => {
-    if (loaded) saveJSON(STORAGE_KEYS.stock, stock);
-  }, [stock, loaded]);
-  useEffect(() => {
-    if (loaded) saveJSON(STORAGE_KEYS.ventes, ventes);
-  }, [ventes, loaded]);
-  useEffect(() => {
-    if (loaded) saveJSON(STORAGE_KEYS.clients, clients);
-  }, [clients, loaded]);
-  useEffect(() => {
-    if (loaded) saveJSON(STORAGE_KEYS.retours, retours);
-  }, [retours, loaded]);
-  useEffect(() => {
-    if (loaded) saveJSON(STORAGE_KEYS.niches, niches);
-  }, [niches, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.stock, stock); }, [stock, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.ventes, ventes); }, [ventes, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.clients, clients); }, [clients, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.retours, retours); }, [retours, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.niches, niches); }, [niches, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.goals, goals); }, [goals, loaded]);
 
   const addStock: Ctx["addStock"] = useCallback((i) => {
     const { season: providedSeason, ...rest } = i;
     const season = providedSeason ?? detectSeason(rest.category);
-    const item: StockItem = {
-      id: rid(),
-      createdAt: new Date().toISOString(),
-      ...rest,
-      season,
-    };
-    setStock((p) => [item, ...p]);
+    setStock((p) => [{ id: rid(), createdAt: new Date().toISOString(), ...rest, season }, ...p]);
   }, []);
 
   const updateStock: Ctx["updateStock"] = useCallback(
-    (id, patch) =>
-      setStock((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
+    (id, patch) => setStock((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
     []
   );
 
@@ -165,64 +168,51 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addVente: Ctx["addVente"] = useCallback((v) => {
-    const vente: Vente = { id: rid(), date: new Date().toISOString(), ...v };
-    setVentes((p) => [vente, ...p]);
+    setVentes((p) => [{ id: rid(), date: new Date().toISOString(), ...v }, ...p]);
   }, []);
 
-  const markSold: Ctx["markSold"] = useCallback(
-    (id, price) => {
-      setStock((cur) => {
-        const item = cur.find((x) => x.id === id);
-        if (item) {
-          const sp = price ?? item.sellPrice;
-          const pub = item.datePublication
-            ? new Date(item.datePublication)
-            : (() => {
-                const base = new Date(item.createdAt || new Date());
-                if ((item.daysOnline || 0) > 0)
-                  base.setDate(base.getDate() - item.daysOnline);
-                return base;
-              })();
-          const actualDays = Math.max(
-            0,
-            Math.round((Date.now() - pub.getTime()) / 86400000)
-          );
-          const vente: Vente = {
-            id: rid(),
-            date: new Date().toISOString(),
-            name: item.name,
-            brand: item.brand,
-            buyPrice: item.buyPrice,
-            sellPrice: sp,
-            delay: actualDays > 0 ? actualDays : item.daysOnline,
-            fees: item.fees ?? 0,
-            boostCost: item.boostCost ?? 0,
-          };
-          setVentes((p) => [vente, ...p]);
-        }
-        return cur.filter((x) => x.id !== id);
-      });
-    },
-    []
-  );
+  const markSold: Ctx["markSold"] = useCallback((id, price) => {
+    setStock((cur) => {
+      const item = cur.find((x) => x.id === id);
+      if (item) {
+        const sp = price ?? item.sellPrice;
+        const pub = item.datePublication
+          ? new Date(item.datePublication)
+          : (() => {
+              const base = new Date(item.createdAt || new Date());
+              if ((item.daysOnline || 0) > 0)
+                base.setDate(base.getDate() - item.daysOnline);
+              return base;
+            })();
+        const actualDays = Math.max(
+          0,
+          Math.round((Date.now() - pub.getTime()) / 86400000)
+        );
+        const vente: Vente = {
+          id: rid(),
+          date: new Date().toISOString(),
+          name: item.name,
+          brand: item.brand,
+          buyPrice: item.buyPrice,
+          sellPrice: sp,
+          delay: actualDays > 0 ? actualDays : item.daysOnline,
+          fees: item.fees ?? 0,
+          boostCost: item.boostCost ?? 0,
+        };
+        setVentes((p) => [vente, ...p]);
+      }
+      return cur.filter((x) => x.id !== id);
+    });
+  }, []);
 
   const addClient: Ctx["addClient"] = useCallback((c) => {
-    const client: Client = {
-      id: rid(),
-      lastContact: new Date().toISOString(),
-      ...c,
-    };
-    setClients((p) => [client, ...p]);
+    setClients((p) => [{ id: rid(), lastContact: new Date().toISOString(), ...c }, ...p]);
   }, []);
 
   const updateClient: Ctx["updateClient"] = useCallback(
     (id, patch) =>
       setClients((p) =>
-        p.map((x) =>
-          x.id === id
-            ? { ...x, ...patch, lastContact: new Date().toISOString() }
-            : x
-        )
+        p.map((x) => x.id === id ? { ...x, ...patch, lastContact: new Date().toISOString() } : x)
       ),
     []
   );
@@ -233,8 +223,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addRetour: Ctx["addRetour"] = useCallback((r) => {
-    const retour: Retour = { id: rid(), date: new Date().toISOString(), ...r };
-    setRetours((p) => [retour, ...p]);
+    setRetours((p) => [{ id: rid(), date: new Date().toISOString(), ...r }, ...p]);
   }, []);
 
   const deleteRetour: Ctx["deleteRetour"] = useCallback(
@@ -247,8 +236,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateNiche: Ctx["updateNiche"] = useCallback(
-    (id, patch) =>
-      setNiches((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
+    (id, patch) => setNiches((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
     []
   );
 
@@ -257,53 +245,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const updateGoals: Ctx["updateGoals"] = useCallback(
+    (patch) => setGoals((g) => ({ ...g, ...patch })),
+    []
+  );
+
   const resetAll = useCallback(() => {
-    setStock([]);
-    setVentes([]);
-    setClients([]);
-    setRetours([]);
-    setNiches([]);
+    setStock([]); setVentes([]); setClients([]); setRetours([]); setNiches([]);
   }, []);
 
   const reloadFromStorage = useCallback(async () => {
-    const [s, v, c, r, n] = await Promise.all([
+    const [s, v, c, r, n, g] = await Promise.all([
       loadJSON<StockItem[]>(STORAGE_KEYS.stock, []),
       loadJSON<Vente[]>(STORAGE_KEYS.ventes, []),
       loadJSON<Client[]>(STORAGE_KEYS.clients, []),
       loadJSON<Retour[]>(STORAGE_KEYS.retours, []),
       loadJSON<Niche[]>(STORAGE_KEYS.niches, []),
+      loadJSON<Goals>(STORAGE_KEYS.goals, DEFAULT_GOALS),
     ]);
-    setStock(s);
-    setVentes(v);
-    setClients(c);
-    setRetours(r);
-    setNiches(n);
+    setStock(s); setVentes(v); setClients(c); setRetours(r); setNiches(n); setGoals(g);
   }, []);
 
   return (
     <DataContext.Provider
       value={{
-        stock,
-        ventes,
-        clients,
-        retours,
-        niches,
-        loaded,
-        addStock,
-        updateStock,
-        deleteStock,
-        markSold,
-        addVente,
-        addClient,
-        updateClient,
-        deleteClient,
-        addRetour,
-        deleteRetour,
-        addNiche,
-        updateNiche,
-        deleteNiche,
-        resetAll,
-        reloadFromStorage,
+        stock, ventes, clients, retours, niches, goals, loaded,
+        addStock, updateStock, deleteStock, markSold, addVente,
+        addClient, updateClient, deleteClient,
+        addRetour, deleteRetour,
+        addNiche, updateNiche, deleteNiche,
+        updateGoals, resetAll, reloadFromStorage,
       }}
     >
       {children}
