@@ -175,6 +175,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const item = cur.find((x) => x.id === id);
         if (item) {
           const sp = price ?? item.sellPrice;
+          const pub = item.datePublication
+            ? new Date(item.datePublication)
+            : (() => {
+                const base = new Date(item.createdAt || new Date());
+                if ((item.daysOnline || 0) > 0)
+                  base.setDate(base.getDate() - item.daysOnline);
+                return base;
+              })();
+          const actualDays = Math.max(
+            0,
+            Math.round((Date.now() - pub.getTime()) / 86400000)
+          );
           const vente: Vente = {
             id: rid(),
             date: new Date().toISOString(),
@@ -182,7 +194,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             brand: item.brand,
             buyPrice: item.buyPrice,
             sellPrice: sp,
-            delay: item.daysOnline,
+            delay: actualDays > 0 ? actualDays : item.daysOnline,
+            fees: item.fees ?? 0,
+            boostCost: item.boostCost ?? 0,
           };
           setVentes((p) => [vente, ...p]);
         }

@@ -14,7 +14,12 @@ export default function VentesScreen() {
   const stats = useMemo(() => {
     const totalCA = ventes.reduce((s, v) => s + (v.sellPrice || 0), 0);
     const totalProfit = ventes.reduce(
-      (s, v) => s + ((v.sellPrice || 0) - (v.buyPrice || 0)),
+      (s, v) =>
+        s +
+        (v.sellPrice || 0) -
+        (v.buyPrice || 0) -
+        (v.fees || 0) -
+        (v.boostCost || 0),
       0
     );
     const avgDelay =
@@ -167,7 +172,11 @@ export default function VentesScreen() {
       ) : (
         <Card>
           {ventes.slice(0, 20).map((v, idx) => {
-            const profit = (v.sellPrice || 0) - (v.buyPrice || 0);
+            const profit =
+              (v.sellPrice || 0) -
+              (v.buyPrice || 0) -
+              (v.fees || 0) -
+              (v.boostCost || 0);
             return (
               <View
                 key={v.id}

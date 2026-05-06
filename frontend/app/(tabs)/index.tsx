@@ -7,36 +7,27 @@ import { Card, SectionTitle } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { colors } from "../../src/theme/colors";
 import { computeNiches, globalWarnings } from "../../src/utils/logic";
-import { computeDashboard, analyzeItem } from "../../src/utils/analytics";
+import { computeDashboardFromAnalyzed } from "../../src/utils/analytics";
+import { useAnalyzedStock } from "../../src/hooks/useAnalyzedStock";
 
 export default function Dashboard() {
   const { stock, ventes, clients, retours } = useData();
+  const analyzed = useAnalyzedStock();
 
   const kpi = useMemo(
-    () => computeDashboard(stock, ventes, retours),
-    [stock, ventes, retours]
+    () => computeDashboardFromAnalyzed(analyzed, ventes),
+    [analyzed, ventes]
   );
 
-  const { relaunch, warnings, niches } = useMemo(() => {
+  const { relaunch, warnings, niches, topAction } = useMemo(() => {
     const now = Date.now();
     const relaunch = clients.filter((c) => {
       const diffH = (now - new Date(c.lastContact).getTime()) / 3600000;
       return c.status === "sans_reponse" && diffH >= 24;
     }).length;
-    return {
-      relaunch,
-      warnings: globalWarnings(stock, retours),
-      niches: computeNiches(ventes),
-    };
-  }, [stock, ventes, clients, retours]);
 
-  const best = niches[0];
-  const worst = niches.length > 1 ? niches[niches.length - 1] : null;
-
-  const topAction = useMemo(() => {
-    const analyzed = stock
-      .map((s) => ({ item: s, a: analyzeItem(s, ventes, retours) }))
-      .filter((x) => x.a.action !== "ANALYSE" && x.a.action !== "GARDER")
+    const topAction = analyzed
+      .filter(({ analysis: a }) => a.action !== "ANALYSE" && a.action !== "GARDER")
       .sort((a, b) => {
         const rank = (act: string) =>
           act === "SUPPRIMER" || act === "LIQUIDER"
@@ -44,10 +35,20 @@ export default function Dashboard() {
             : act === "BAISSE_IMMEDIATE"
             ? 1
             : 2;
-        return rank(a.a.action) - rank(b.a.action);
-      });
-    return analyzed.slice(0, 3);
-  }, [stock, ventes, retours]);
+        return rank(a.analysis.action) - rank(b.analysis.action);
+      })
+      .slice(0, 3);
+
+    return {
+      relaunch,
+      warnings: globalWarnings(stock, retours),
+      niches: computeNiches(ventes),
+      topAction,
+    };
+  }, [analyzed, stock, ventes, clients, retours]);
+
+  const best = niches[0];
+  const worst = niches.length > 1 ? niches[niches.length - 1] : null;
 
   return (
     <ScrollView
@@ -133,7 +134,7 @@ export default function Dashboard() {
         <>
           <SectionTitle title="Actions prioritaires" />
           <Card testID="dashboard-actions">
-            {topAction.map(({ item, a }, idx) => (
+            {topAction.map(({ item, analysis: a }, idx) => (
               <View
                 key={item.id}
                 style={[

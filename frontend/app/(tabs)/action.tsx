@@ -1,31 +1,25 @@
 import React, { useMemo } from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
-import { useData, StockItem } from "../../src/store/context";
+import { useData } from "../../src/store/context";
 import { ScreenHeader } from "../../src/components/ScreenHeader";
 import { Card, SectionTitle } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
 import { Thumb } from "../../src/components/Thumb";
 import { colors } from "../../src/theme/colors";
-import {
-  computeScore,
-  computeDecision,
-  shouldRepost,
-  forceDelete,
-  suggestedPrice,
-} from "../../src/utils/logic";
-import { analyzeItem } from "../../src/utils/analytics";
+import { shouldRepost, forceDelete, suggestedPrice } from "../../src/utils/logic";
+import { useAnalyzedStock } from "../../src/hooks/useAnalyzedStock";
 
 export default function ActionScreen() {
-  const { stock, ventes, retours, clients, deleteStock, updateStock, updateClient } =
-    useData();
+  const { ventes, clients, deleteStock, updateStock, updateClient } = useData();
+  const analyzed = useAnalyzedStock();
 
   const { toDelete, toDrop, toRepost, toRelaunch } = useMemo(() => {
-    const toDelete: StockItem[] = [];
-    const toDrop: { item: StockItem; suggested: number }[] = [];
-    const toRepost: StockItem[] = [];
-    stock.forEach((item) => {
-      const a = analyzeItem(item, ventes, retours);
+    const toDelete: typeof analyzed[0]["item"][] = [];
+    const toDrop: { item: typeof analyzed[0]["item"]; suggested: number }[] = [];
+    const toRepost: typeof analyzed[0]["item"][] = [];
+
+    analyzed.forEach(({ item, analysis: a }) => {
       if (a.action === "SUPPRIMER" || forceDelete(item)) {
         toDelete.push(item);
       } else if (
@@ -38,13 +32,15 @@ export default function ActionScreen() {
         toRepost.push(item);
       }
     });
+
     const now = Date.now();
     const toRelaunch = clients.filter((c) => {
       const diffH = (now - new Date(c.lastContact).getTime()) / 3600000;
       return c.status === "sans_reponse" && diffH >= 24;
     });
+
     return { toDelete, toDrop, toRepost, toRelaunch };
-  }, [stock, ventes, retours, clients]);
+  }, [analyzed, ventes, clients]);
 
   const nothing =
     toDelete.length === 0 &&
@@ -65,12 +61,8 @@ export default function ActionScreen() {
 
       {nothing ? (
         <Card testID="action-empty">
-          <Text style={styles.empty}>
-            Tout est sous contrôle ✓
-          </Text>
-          <Text style={styles.emptyHint}>
-            Aucune action urgente en ce moment.
-          </Text>
+          <Text style={styles.empty}>Tout est sous contrôle ✓</Text>
+          <Text style={styles.emptyHint}>Aucune action urgente en ce moment.</Text>
         </Card>
       ) : (
         <>
@@ -127,9 +119,7 @@ export default function ActionScreen() {
                   <Button
                     label={`Appliquer ${suggested}€`}
                     variant="primary"
-                    onPress={() =>
-                      updateStock(item.id, { sellPrice: suggested })
-                    }
+                    onPress={() => updateStock(item.id, { sellPrice: suggested })}
                     testID={`action-drop-btn-${item.id}`}
                   />
                 </Card>
@@ -194,9 +184,7 @@ export default function ActionScreen() {
                   <Button
                     label="Marquer comme relancé"
                     variant="primary"
-                    onPress={() =>
-                      updateClient(c.id, { status: "negociation" })
-                    }
+                    onPress={() => updateClient(c.id, { status: "negociation" })}
                     testID={`action-relaunch-btn-${c.id}`}
                   />
                 </Card>

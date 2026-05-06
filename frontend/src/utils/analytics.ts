@@ -287,6 +287,57 @@ export function computeDashboard(
   };
 }
 
+// ---------- DASHBOARD (version depuis analyses pré-calculées) ----------
+export function computeDashboardFromAnalyzed(
+  analyzed: Array<{ item: StockItem; analysis: ItemAnalysis }>,
+  ventes: Vente[]
+): DashboardKpis {
+  let ca = 0;
+  let benefice = 0;
+  let cost = 0;
+  let delaySum = 0;
+  let delayCount = 0;
+
+  ventes.forEach((v) => {
+    if (v.sellPrice > 0) ca += v.sellPrice;
+    if (v.buyPrice > 0 && v.sellPrice > 0) {
+      const fees = v.fees ?? 0;
+      const bc = v.boostCost ?? 0;
+      benefice += v.sellPrice - v.buyPrice - fees - bc;
+      cost += v.buyPrice;
+    }
+    if (v.delay > 0) {
+      delaySum += v.delay;
+      delayCount++;
+    }
+  });
+
+  const roi = cost > 0 ? (benefice / cost) * 100 : 0;
+  const avgDelay = delayCount > 0 ? delaySum / delayCount : 0;
+  const stockBlocked = analyzed.reduce((s, { item }) => s + (item.buyPrice || 0), 0);
+
+  let toBaisser = 0;
+  let toLiquider = 0;
+  let boostable = 0;
+  analyzed.forEach(({ analysis: a }) => {
+    if (a.action === "BAISSER" || a.action === "BAISSE_IMMEDIATE") toBaisser++;
+    if (a.action === "LIQUIDER" || a.action === "SUPPRIMER") toLiquider++;
+    if (a.boost.verdict === "BOOST") boostable++;
+  });
+
+  return {
+    ca: Math.round(ca * 100) / 100,
+    benefice: Math.round(benefice * 100) / 100,
+    roi: Math.round(roi * 10) / 10,
+    avgDelay: Math.round(avgDelay * 10) / 10,
+    stockBlocked: Math.round(stockBlocked * 100) / 100,
+    itemsCount: analyzed.length,
+    toBaisser,
+    toLiquider,
+    boostable,
+  };
+}
+
 // ---------- SOURCING (amélioré) ----------
 const STRONG_CATEGORIES = [
   "carhartt",

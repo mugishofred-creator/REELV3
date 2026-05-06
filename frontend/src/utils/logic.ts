@@ -1,4 +1,5 @@
 import type { StockItem, Vente, Retour } from "../store/context";
+import { timeSincePost } from "./analytics";
 
 // ---------- SEASON ----------
 export function detectSeason(category: string): "ete" | "hiver" | "toute" {
@@ -183,7 +184,7 @@ export function globalWarnings(
   retours: Retour[]
 ): string[] {
   const warnings: string[] = [];
-  const dead = stock.filter((s) => s.daysOnline >= 21).length;
+  const dead = stock.filter((s) => timeSincePost(s).days >= 21).length;
   if (dead >= 3) warnings.push("TU ACHÈTES MAL — trop de stock mort");
   if (retours.length >= 3)
     warnings.push("MAUVAISE DESCRIPTION — trop de retours");
