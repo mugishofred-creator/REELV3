@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +14,13 @@ import { exportStock, exportVentes, exportRetours } from "../../src/utils/csv";
 import { exportBackup, pickBackupFile, applyRestore, countPayload } from "../../src/utils/backup";
 import { importCsvBackup } from "../../src/utils/csvImport";
 import { currentMonthStats, lastSevenDaysStats } from "../../src/utils/projections";
+import {
+  fetchUserItems, extractUserId,
+  getSavedVintedUserId, saveVintedUserId,
+  getBackendUrl, saveBackendUrl, DEFAULT_BACKEND,
+  type VintedItem,
+} from "../../src/utils/vintedApi";
+import { detectSeason } from "../../src/utils/logic";
 
 const MENU = [
   { key: "sourcing", path: "/sourcing", title: "Sourcing IA", desc: "Prix max · analyse marché · verdict instantané", icon: "flash-outline" as const, color: colors.good },
@@ -21,10 +29,30 @@ const MENU = [
   { key: "retours", path: "/retours", title: "Retours", desc: "Suivi remboursements · pénalités marques", icon: "arrow-undo-outline" as const, color: colors.urgent },
 ];
 
+// ── Vinted sync status ────────────────────────────────────────────────────────
+type SyncState = "idle" | "loading" | "preview" | "done" | "error";
+
 export default function PlusScreen() {
   const router = useRouter();
-  const { stock, ventes, retours, goals, updateGoals, resetAll, reloadFromStorage } = useData();
+  const { stock, ventes, retours, goals, updateGoals, resetAll, reloadFromStorage, addStock } = useData();
   const [goalsOpen, setGoalsOpen] = useState(false);
+
+  // ── Vinted sync state ──
+  const [vintedInput, setVintedInput] = useState("");
+  const [syncState, setSyncState] = useState<SyncState>("idle");
+  const [syncItems, setSyncItems] = useState<VintedItem[]>([]);
+  const [syncError, setSyncError] = useState("");
+  const [syncDone, setSyncDone] = useState<{ added: number; skipped: number } | null>(null);
+
+  // ── Backend URL config ──
+  const [showUrlConfig, setShowUrlConfig] = useState(false);
+  const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND);
+  const [urlSaved, setUrlSaved] = useState(false);
+
+  useEffect(() => {
+    getSavedVintedUserId().then(setVintedInput);
+    getBackendUrl().then(setBackendUrl);
+  }, []);
 
   const thisMonth = currentMonthStats(ventes);
   const thisWeek = lastSevenDaysStats(ventes);
@@ -83,11 +111,214 @@ export default function PlusScreen() {
     } catch { Alert.alert("Erreur", "Impossible d'importer."); }
   };
 
+  // ── Vinted sync handlers ──────────────────────────────────────────────────
+
+  const handleFetchVinted = async () => {
+    const raw = vintedInput.trim();
+    if (!raw) { Alert.alert("", "Entre ton ID ou URL de profil Vinted."); return; }
+    const userId = extractUserId(raw);
+    if (!userId || !/^\d+$/.test(userId)) {
+      Alert.alert("ID invalide", "L'ID Vinted doit être un nombre.\nEx : https://www.vinted.fr/member/12345-pseudo");
+      return;
+    }
+
+    setSyncState("loading");
+    setSyncError("");
+    setSyncDone(null);
+    try {
+      const items = await fetchUserItems(userId);
+      await saveVintedUserId(raw);
+      if (items.length === 0) {
+        setSyncState("error");
+        setSyncError("Aucun article trouvé pour ce profil. Vérifie que le profil est public.");
+        return;
+      }
+      setSyncItems(items);
+      setSyncState("preview");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Erreur réseau";
+      setSyncState("error");
+      setSyncError(
+        msg.includes("502") || msg.includes("unreachable")
+          ? "Impossible de contacter le backend. Configure l'URL ci-dessous."
+          : msg.includes("404")
+          ? "Utilisateur Vinted introuvable. Vérifie l'ID."
+          : `Erreur : ${msg}`
+      );
+    }
+  };
+
+  const handleImportAll = () => {
+    const existingSourceIds = new Set(stock.map((s) => s.sourceId).filter(Boolean));
+    const toAdd = syncItems.filter((i) => !existingSourceIds.has(i.id));
+    const skipped = syncItems.length - toAdd.length;
+
+    toAdd.forEach((item) => {
+      addStock({
+        name: item.title || "Article Vinted",
+        brand: item.brand || "Marque inconnue",
+        category: item.category || "Autres",
+        buyPrice: 0,
+        sellPrice: item.price,
+        views: 0,
+        favorites: 0,
+        daysOnline: 0,
+        defect: false,
+        season: detectSeason(item.category),
+        repostCount: 0,
+        sold: false,
+        image: item.photoUrl || undefined,
+        datePublication: new Date().toISOString(),
+        fees: 0,
+        boostCost: 0,
+        sourceId: item.id,
+      });
+    });
+
+    setSyncDone({ added: toAdd.length, skipped });
+    setSyncState("done");
+  };
+
+  const handleSaveBackendUrl = async () => {
+    await saveBackendUrl(backendUrl);
+    setUrlSaved(true);
+    setTimeout(() => setUrlSaved(false), 2000);
+  };
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.container} testID="plus-scroll">
       <ScreenHeader title="Plus" subtitle="Outils & objectifs" />
 
+      {/* ── SYNCHRONISATION VINTED ── */}
+      <SectionTitle title="Synchronisation Vinted" subtitle="Importe ton catalogue en un tap" />
+      <Card style={styles.syncCard} testID="vinted-sync-card">
+        <View style={styles.syncHeader}>
+          <View style={[styles.menuIcon, { backgroundColor: `${colors.good}20`, borderColor: `${colors.good}50` }]}>
+            <Ionicons name="sync-outline" size={22} color={colors.good} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuTitle}>Importer mon catalogue</Text>
+            <Text style={styles.menuDesc}>Colle ton profil Vinted → stock en 10 secondes</Text>
+          </View>
+        </View>
+
+        <View style={styles.syncInputRow}>
+          <TextInput
+            style={styles.syncInput}
+            value={vintedInput}
+            onChangeText={setVintedInput}
+            placeholder="vinted.fr/member/12345-pseudo ou 12345"
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            testID="vinted-user-input"
+          />
+          <TouchableOpacity
+            style={[styles.syncBtn, syncState === "loading" && styles.syncBtnLoading]}
+            onPress={handleFetchVinted}
+            disabled={syncState === "loading"}
+            testID="vinted-fetch-btn"
+          >
+            {syncState === "loading" ? (
+              <ActivityIndicator size="small" color={colors.bg} />
+            ) : (
+              <Ionicons name="arrow-forward" size={18} color={colors.bg} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {syncState === "loading" && (
+          <Text style={styles.syncLoading}>Récupération de tes annonces Vinted…</Text>
+        )}
+
+        {syncState === "error" && (
+          <View style={styles.syncErrorBox}>
+            <Ionicons name="alert-circle-outline" size={14} color={colors.urgent} />
+            <Text style={styles.syncErrorText}>{syncError}</Text>
+          </View>
+        )}
+
+        {syncState === "preview" && (
+          <View style={styles.previewBox}>
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewCount}>
+                {syncItems.length} article{syncItems.length > 1 ? "s" : ""} trouvés
+              </Text>
+              <Text style={styles.previewSub}>
+                {stock.filter((s) => syncItems.some((i) => i.id === s.sourceId)).length} déjà importés
+              </Text>
+            </View>
+            {syncItems.slice(0, 4).map((item) => (
+              <View key={item.id} style={styles.previewItem}>
+                <Text style={styles.previewItemName} numberOfLines={1}>
+                  {item.title || "—"}
+                </Text>
+                <Text style={[styles.previewItemPrice, { color: colors.good }]}>
+                  {item.price.toFixed(0)} €
+                </Text>
+              </View>
+            ))}
+            {syncItems.length > 4 && (
+              <Text style={styles.previewMore}>
+                + {syncItems.length - 4} autre{syncItems.length - 4 > 1 ? "s" : ""}…
+              </Text>
+            )}
+            <TouchableOpacity style={styles.importAllBtn} onPress={handleImportAll} testID="vinted-import-btn">
+              <Ionicons name="download-outline" size={16} color={colors.bg} />
+              <Text style={styles.importAllText}>Tout importer dans le stock</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {syncState === "done" && syncDone && (
+          <View style={styles.doneBox}>
+            <Text style={styles.doneTitle}>✓ Import terminé</Text>
+            <Text style={styles.doneSub}>
+              {syncDone.added} article{syncDone.added !== 1 ? "s" : ""} ajouté{syncDone.added !== 1 ? "s" : ""}
+              {syncDone.skipped > 0 ? ` · ${syncDone.skipped} déjà en stock` : ""}
+            </Text>
+            <TouchableOpacity onPress={() => { setSyncState("idle"); setSyncDone(null); }}>
+              <Text style={styles.doneReset}>Importer à nouveau</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </Card>
+
+      {/* ── CONFIG BACKEND ── */}
+      <TouchableOpacity onPress={() => setShowUrlConfig((v) => !v)} style={styles.urlToggle} testID="url-config-toggle">
+        <Ionicons name={showUrlConfig ? "chevron-up" : "chevron-down"} size={14} color={colors.textMuted} />
+        <Text style={styles.urlToggleText}>Paramètres avancés (URL backend)</Text>
+      </TouchableOpacity>
+      {showUrlConfig && (
+        <Card style={styles.urlCard}>
+          <Text style={styles.urlLabel}>URL du backend (API Vinted proxy)</Text>
+          <Text style={styles.urlHint}>
+            Sur réseau local, remplace localhost par l'IP de ton ordinateur (ex : 192.168.1.42:8001)
+          </Text>
+          <View style={styles.urlInputRow}>
+            <TextInput
+              style={styles.urlInput}
+              value={backendUrl}
+              onChangeText={setBackendUrl}
+              placeholder={DEFAULT_BACKEND}
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              testID="backend-url-input"
+            />
+            <TouchableOpacity
+              style={[styles.urlSaveBtn, urlSaved && styles.urlSaveBtnDone]}
+              onPress={handleSaveBackendUrl}
+              testID="backend-url-save"
+            >
+              <Text style={styles.urlSaveBtnText}>{urlSaved ? "✓" : "OK"}</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      )}
+
       {/* ── OUTILS ── */}
+      <SectionTitle title="Outils" />
       {MENU.map((m) => (
         <TouchableOpacity key={m.key} onPress={() => router.push(m.path as never)} activeOpacity={0.85} testID={`plus-${m.key}`}>
           <Card style={styles.menuItem}>
@@ -212,11 +443,13 @@ export default function PlusScreen() {
         <Text style={styles.resetText}>Réinitialiser toutes les données</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footer}>Vinted Manager Pro · v2.0</Text>
+      <Text style={styles.footer}>Vinted Manager Pro · v2.1</Text>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function GoalInput({ label, value, onSave }: { label: string; value: string; onSave: (v: string) => void }) {
   const [local, setLocal] = useState(value);
@@ -276,4 +509,57 @@ const styles = StyleSheet.create({
   resetBtn: { marginTop: 24, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.urgentBorder, backgroundColor: colors.urgentBg, alignItems: "center" },
   resetText: { color: colors.urgent, fontWeight: "800", fontSize: 12, letterSpacing: 1, textTransform: "uppercase" },
   footer: { color: colors.textMuted, textAlign: "center", fontSize: 11, marginTop: 24 },
+
+  // ── Vinted sync ──
+  syncCard: { marginBottom: 4 },
+  syncHeader: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 },
+  syncInputRow: { flexDirection: "row", gap: 8 },
+  syncInput: {
+    flex: 1, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    color: colors.textPrimary, fontSize: 13,
+  },
+  syncBtn: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: colors.good,
+    alignItems: "center", justifyContent: "center",
+  },
+  syncBtnLoading: { backgroundColor: `${colors.good}70` },
+  syncLoading: { color: colors.textMuted, fontSize: 12, marginTop: 10, textAlign: "center" },
+  syncErrorBox: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10, padding: 10, backgroundColor: colors.urgentBg, borderRadius: 10, borderWidth: 1, borderColor: colors.urgentBorder },
+  syncErrorText: { color: colors.urgent, fontSize: 12, flex: 1, lineHeight: 17 },
+
+  previewBox: { marginTop: 14, borderTopWidth: 1, borderTopColor: colors.borderSoft, paddingTop: 12 },
+  previewHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
+  previewCount: { color: colors.textPrimary, fontSize: 14, fontWeight: "900" },
+  previewSub: { color: colors.textMuted, fontSize: 12 },
+  previewItem: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.borderSoft },
+  previewItemName: { color: colors.textSecondary, fontSize: 13, flex: 1, marginRight: 8 },
+  previewItemPrice: { fontSize: 13, fontWeight: "800" },
+  previewMore: { color: colors.textMuted, fontSize: 12, marginTop: 6, marginBottom: 4 },
+  importAllBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: colors.good, borderRadius: 12, padding: 12, marginTop: 12,
+  },
+  importAllText: { color: colors.bg, fontSize: 13, fontWeight: "800" },
+
+  doneBox: { marginTop: 14, padding: 14, backgroundColor: colors.goodBg, borderRadius: 12, borderWidth: 1, borderColor: colors.goodBorder, alignItems: "center" },
+  doneTitle: { color: colors.good, fontSize: 16, fontWeight: "900", marginBottom: 4 },
+  doneSub: { color: colors.textSecondary, fontSize: 13, textAlign: "center" },
+  doneReset: { color: colors.info, fontSize: 12, marginTop: 10, fontWeight: "700" },
+
+  // ── URL config ──
+  urlToggle: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8, marginBottom: 4 },
+  urlToggleText: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  urlCard: { marginBottom: 10 },
+  urlLabel: { color: colors.textSecondary, fontSize: 12, fontWeight: "700", marginBottom: 4 },
+  urlHint: { color: colors.textMuted, fontSize: 11, marginBottom: 10, lineHeight: 16 },
+  urlInputRow: { flexDirection: "row", gap: 8 },
+  urlInput: {
+    flex: 1, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9,
+    color: colors.textPrimary, fontSize: 12,
+  },
+  urlSaveBtn: { paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.info, borderRadius: 10, justifyContent: "center" },
+  urlSaveBtnDone: { backgroundColor: colors.good },
+  urlSaveBtnText: { color: colors.bg, fontWeight: "800", fontSize: 13 },
 });

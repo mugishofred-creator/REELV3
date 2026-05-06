@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import {
-  ScrollView, View, Text, StyleSheet, TextInput, TouchableOpacity,
+  ScrollView, View, Text, StyleSheet, TextInput,
+  TouchableOpacity, ActivityIndicator,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Card, SectionTitle } from "../src/components/Card";
 import { Badge } from "../src/components/Badge";
@@ -10,6 +12,7 @@ import { colors } from "../src/theme/colors";
 import { useData } from "../src/store/context";
 import { sourcingAnalyze, type Sourcing as SourcingVerdict } from "../src/utils/analytics";
 import { computeNiches } from "../src/utils/logic";
+import { fetchMarketPrice, type MarketData } from "../src/utils/vintedApi";
 
 function verdictTone(v: SourcingVerdict): "good" | "info" | "warning" | "urgent" | "neutral" {
   if (v === "ACHETER") return "good";
@@ -35,11 +38,17 @@ export default function Sourcing() {
   const [fees, setFees] = useState("0");
   const [targetProfit, setTargetProfit] = useState("15");
 
+  // ── Live market data state ──
+  const [market, setMarket] = useState<MarketData | null>(null);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState<string | null>(null);
+  const lastFetchRef = useRef<string>("");
+
   const buyNum = Number(buyPrice) || 0;
   const feesNum = Number(fees) || 0;
   const targetNum = Number(targetProfit) || 15;
 
-  // ── Historique marque ──
+  // ── Historique marque (personal history) ──
   const brandHistory = useMemo(() => {
     const bl = brand.trim().toLowerCase();
     if (!bl) return null;
@@ -49,18 +58,32 @@ export default function Sourcing() {
     const avgDelay = sales.reduce((s, v) => s + (v.delay || 0), 0) / sales.length;
     const profits = sales.map((v) => v.sellPrice - v.buyPrice - (v.fees || 0) - (v.boostCost || 0));
     const avgProfit = profits.reduce((a, b) => a + b, 0) / profits.length;
-    const bestSale = profits.reduce((best, p, i) => p > best.profit ? { profit: p, sale: sales[i] } : best, { profit: -Infinity, sale: sales[0] });
+    const bestSale = profits.reduce(
+      (best, p, i) => (p > best.profit ? { profit: p, sale: sales[i] } : best),
+      { profit: -Infinity, sale: sales[0] }
+    );
     const winRate = profits.filter((p) => p > 0).length / profits.length;
     return { count: sales.length, avgSell, avgDelay, avgProfit, bestSale, winRate };
   }, [brand, ventes]);
 
-  // ── Prix max achat (pour atteindre targetProfit) ──
-  const maxBuyPrice = useMemo(() => {
-    if (!brandHistory) return null;
-    return Math.max(0, brandHistory.avgSell - targetNum - feesNum);
-  }, [brandHistory, targetNum, feesNum]);
+  // ── Market reference price: live data takes priority over personal history ──
+  const referencePrice = market && market.count > 0
+    ? market.median
+    : brandHistory?.avgSell ?? null;
 
-  // ── Analyse sourcing (calcul en temps réel) ──
+  const referenceSource = market && market.count > 0
+    ? `marché live (${market.count} annonces)`
+    : brandHistory
+    ? `historique perso (${brandHistory.count} ventes)`
+    : null;
+
+  // ── Prix max achat ──
+  const maxBuyPrice = useMemo(() => {
+    if (referencePrice === null) return null;
+    return Math.max(0, referencePrice - targetNum - feesNum);
+  }, [referencePrice, targetNum, feesNum]);
+
+  // ── Analyse sourcing ──
   const result = useMemo(() => {
     if (!brand.trim() || buyNum <= 0) return null;
     return sourcingAnalyze(brand.trim(), category.trim(), buyNum, ventes, feesNum);
@@ -72,6 +95,40 @@ export default function Sourcing() {
   const marginOK = result?.profit !== null && result?.profit !== undefined && result.profit >= 0;
   const isGoodDeal = buyNum > 0 && maxBuyPrice !== null && buyNum <= maxBuyPrice;
 
+  // ── Live market fetch ──
+  const handleFetchMarket = async () => {
+    const b = brand.trim();
+    const c = category.trim();
+    const key = `${b}|${c}`;
+    if (!b) return;
+    if (lastFetchRef.current === key && market) return; // already loaded
+
+    setMarketLoading(true);
+    setMarketError(null);
+    try {
+      const data = await fetchMarketPrice(b, c);
+      if (data.error === "no_results") {
+        setMarketError("Aucune annonce trouvée sur Vinted pour cette recherche.");
+        setMarket(null);
+      } else {
+        setMarket(data);
+        lastFetchRef.current = key;
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Erreur réseau";
+      setMarketError(
+        msg.includes("502") || msg.includes("unreachable")
+          ? "Backend inaccessible. Vérifie l'URL dans Plus > Paramètres."
+          : msg
+      );
+      setMarket(null);
+    } finally {
+      setMarketLoading(false);
+    }
+  };
+
+  const canFetchMarket = brand.trim().length >= 2;
+
   return (
     <ModalScreen title="Sourcing IA" subtitle="Analyse instantanée · prix max · verdict">
       <ScrollView contentContainerStyle={styles.content} testID="sourcing-scroll" keyboardShouldPersistTaps="handled">
@@ -81,7 +138,7 @@ export default function Sourcing() {
           <Label>Marque</Label>
           <StyledInput
             value={brand}
-            onChangeText={setBrand}
+            onChangeText={(v) => { setBrand(v); setMarket(null); lastFetchRef.current = ""; }}
             placeholder="Carhartt, Levi's, Nike…"
             testID="sourcing-brand"
           />
@@ -91,7 +148,7 @@ export default function Sourcing() {
           <Label>Catégorie</Label>
           <StyledInput
             value={category}
-            onChangeText={setCategory}
+            onChangeText={(v) => { setCategory(v); setMarket(null); lastFetchRef.current = ""; }}
             placeholder="cargo, workwear, jean…"
             testID="sourcing-category"
           />
@@ -100,40 +157,81 @@ export default function Sourcing() {
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
             <Label>Prix achat (€)</Label>
-            <StyledInput
-              value={buyPrice}
-              onChangeText={setBuyPrice}
-              placeholder="0"
-              keyboardType="numeric"
-              testID="sourcing-price"
-            />
+            <StyledInput value={buyPrice} onChangeText={setBuyPrice} placeholder="0" keyboardType="numeric" testID="sourcing-price" />
           </View>
           <View style={{ flex: 1 }}>
             <Label>Frais (€)</Label>
-            <StyledInput
-              value={fees}
-              onChangeText={setFees}
-              placeholder="0"
-              keyboardType="numeric"
-              testID="sourcing-fees"
-            />
+            <StyledInput value={fees} onChangeText={setFees} placeholder="0" keyboardType="numeric" testID="sourcing-fees" />
           </View>
           <View style={{ flex: 1 }}>
             <Label>Profit cible (€)</Label>
-            <StyledInput
-              value={targetProfit}
-              onChangeText={setTargetProfit}
-              placeholder="15"
-              keyboardType="numeric"
-              testID="sourcing-target"
-            />
+            <StyledInput value={targetProfit} onChangeText={setTargetProfit} placeholder="15" keyboardType="numeric" testID="sourcing-target" />
           </View>
         </View>
 
-        {/* ── HISTORIQUE MARQUE ── */}
+        {/* ── BOUTON PRIX MARCHÉ LIVE ── */}
+        {canFetchMarket && (
+          <TouchableOpacity
+            onPress={handleFetchMarket}
+            style={[styles.marketBtn, marketLoading && styles.marketBtnLoading]}
+            disabled={marketLoading}
+            testID="sourcing-market-btn"
+            activeOpacity={0.8}
+          >
+            {marketLoading ? (
+              <ActivityIndicator size="small" color={colors.bg} />
+            ) : (
+              <Ionicons name="trending-up-outline" size={16} color={colors.bg} />
+            )}
+            <Text style={styles.marketBtnText}>
+              {marketLoading ? "Recherche en cours…" : market ? "Actualiser le prix marché" : "Récupérer les prix du marché Vinted"}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {marketError && (
+          <View style={styles.marketError}>
+            <Ionicons name="warning-outline" size={14} color={colors.warning} />
+            <Text style={styles.marketErrorText}>{marketError}</Text>
+          </View>
+        )}
+
+        {/* ── DONNÉES MARCHÉ LIVE ── */}
+        {market && market.count > 0 && (
+          <>
+            <SectionTitle title="Prix du marché Vinted" subtitle={`"${market.query}" · ${market.count} annonces actives`} />
+            <Card style={styles.marketCard} testID="sourcing-market-card">
+              <View style={styles.histRow}>
+                <HistStat label="Médiane" value={`${market.median.toFixed(0)} €`} color={colors.good} />
+                <HistStat label="Moyenne" value={`${market.average.toFixed(0)} €`} color={colors.info} />
+                <HistStat label="Min" value={`${market.min.toFixed(0)} €`} color={colors.textMuted} />
+                <HistStat label="Max" value={`${market.max.toFixed(0)} €`} color={colors.textMuted} />
+              </View>
+              {market.samples.length > 0 && (
+                <View style={styles.samplesList}>
+                  {market.samples.slice(0, 5).map((s, i) => (
+                    <View key={i} style={[styles.sampleRow, i < 4 && styles.sampleBorder]}>
+                      <Text style={styles.sampleTitle} numberOfLines={1}>{s.title || s.brand}</Text>
+                      <Text style={[styles.samplePrice, { color: colors.good }]}>{s.price.toFixed(0)} €</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <View style={styles.marketSourceBadge}>
+                <Ionicons name="checkmark-circle-outline" size={12} color={colors.good} />
+                <Text style={styles.marketSourceText}>Données live Vinted</Text>
+              </View>
+            </Card>
+          </>
+        )}
+
+        {/* ── HISTORIQUE MARQUE (personal) ── */}
         {brandHistory && (
           <>
-            <SectionTitle title={`Historique ${brand.trim().toUpperCase()}`} subtitle={`${brandHistory.count} vente${brandHistory.count > 1 ? "s" : ""} dans ta base`} />
+            <SectionTitle
+              title={`Historique ${brand.trim().toUpperCase()}`}
+              subtitle={`${brandHistory.count} vente${brandHistory.count > 1 ? "s" : ""} dans ta base`}
+            />
             <Card style={styles.historyCard}>
               <View style={styles.histRow}>
                 <HistStat label="Prix moy. vente" value={`${brandHistory.avgSell.toFixed(0)} €`} color={colors.good} />
@@ -161,7 +259,7 @@ export default function Sourcing() {
         )}
 
         {/* ── PRIX MAX ACHAT ── */}
-        {maxBuyPrice !== null && (
+        {maxBuyPrice !== null && referenceSource && (
           <>
             <SectionTitle title="Calculateur de prix max" subtitle={`Pour atteindre ${targetNum}€ de profit`} />
             <Card style={[styles.maxPriceCard, { borderColor: isGoodDeal ? colors.goodBorder : buyNum > 0 ? colors.urgentBorder : colors.borderSoft }]}>
@@ -191,8 +289,8 @@ export default function Sourcing() {
                 )}
               </View>
               <View style={styles.calcBreakdown}>
-                <CalcRow label="Prix vente moyen marché" value={`${brandHistory!.avgSell.toFixed(0)} €`} />
-                <CalcRow label={`Profit cible`} value={`− ${targetNum} €`} />
+                <CalcRow label={`Prix réf. (${referenceSource})`} value={`${referencePrice!.toFixed(0)} €`} />
+                <CalcRow label="Profit cible" value={`− ${targetNum} €`} />
                 <CalcRow label="Frais" value={`− ${feesNum} €`} />
                 <View style={styles.calcTotal}>
                   <Text style={styles.calcTotalLabel}>= Prix max achat</Text>
@@ -203,7 +301,7 @@ export default function Sourcing() {
           </>
         )}
 
-        {/* ── VERDICT SOURCING ── */}
+        {/* ── VERDICT SOURCING (personal history) ── */}
         {result && (
           <>
             <SectionTitle title="Analyse complète" subtitle="Score · marge · catégorie" />
@@ -225,7 +323,7 @@ export default function Sourcing() {
 
               <View style={styles.statsGrid}>
                 <StatBox label="Échantillon" value={`${result.sampleSize} vente${result.sampleSize > 1 ? "s" : ""}`} tone={result.sampleSize >= 3 ? "good" : result.sampleSize >= 1 ? "warning" : "urgent"} />
-                <StatBox label="Prix moyen marché" value={result.avgSell > 0 ? `${result.avgSell.toFixed(0)} €` : "—"} />
+                <StatBox label="Prix moy. perso" value={result.avgSell > 0 ? `${result.avgSell.toFixed(0)} €` : "—"} />
                 <StatBox
                   label="Profit estimé"
                   value={result.profit !== null ? `${result.profit >= 0 ? "+" : ""}${result.profit.toFixed(0)} €` : "—"}
@@ -273,6 +371,8 @@ export default function Sourcing() {
     </ModalScreen>
   );
 }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function Label({ children }: { children: string }) {
   return <Text style={labelStyles.l}>{children}</Text>;
@@ -347,6 +447,25 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 60 },
   row: { flexDirection: "row", gap: 10, marginBottom: 4 },
   inputGroup: { marginBottom: 12 },
+
+  marketBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: colors.info, borderRadius: 12,
+    paddingVertical: 13, paddingHorizontal: 16, marginBottom: 10, marginTop: 4,
+  },
+  marketBtnLoading: { backgroundColor: `${colors.info}80` },
+  marketBtnText: { color: colors.bg, fontSize: 13, fontWeight: "800" },
+  marketError: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 10, padding: 10, backgroundColor: colors.warningBg, borderRadius: 10, borderWidth: 1, borderColor: colors.warningBorder },
+  marketErrorText: { color: colors.warning, fontSize: 12, flex: 1, lineHeight: 17 },
+
+  marketCard: { marginBottom: 4 },
+  samplesList: { borderTopWidth: 1, borderTopColor: colors.borderSoft, marginTop: 12, paddingTop: 8 },
+  sampleRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 7 },
+  sampleBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderSoft },
+  sampleTitle: { color: colors.textSecondary, fontSize: 12, flex: 1, marginRight: 8 },
+  samplePrice: { fontSize: 13, fontWeight: "800" },
+  marketSourceBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.borderSoft },
+  marketSourceText: { color: colors.good, fontSize: 10, fontWeight: "700" },
 
   historyCard: { marginBottom: 4 },
   histRow: { flexDirection: "row", marginBottom: 14 },

@@ -27,6 +27,7 @@ export interface StockItem {
   datePublication?: string;
   fees?: number;
   boostCost?: number;
+  sourceId?: string;  // Vinted listing ID for dedup on re-import
 }
 
 export interface Vente {
