@@ -60,12 +60,11 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
 
   const onNavChange = (state: { url: string }) => {
     const url = state.url || "";
-    const loggedIn = url.includes("vinted.fr") &&
-      !url.includes("/auth/") &&
-      !url.includes("/login") &&
-      !url.includes("/sign_in") &&
-      !url.includes("/oauth");
-    if (loggedIn && webRef.current) {
+    const isAuth = url.includes("/signup") || url.includes("/login") ||
+      url.includes("/oauth") || url.includes("/auth") ||
+      url.includes("accounts.google") || url.includes("appleid.apple");
+    const isHome = url.match(/vinted\.fr\/?(\?|#|$)/);
+    if (!isAuth && isHome && webRef.current) {
       webRef.current.injectJavaScript(INJECT_JS);
     }
   };
@@ -87,7 +86,7 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
         )}
         <WebView
           ref={webRef}
-          source={{ uri: "https://www.vinted.fr/auth/sign_in" }}
+          source={{ uri: "https://www.vinted.fr/member/signup/select_type" }}
           onLoadEnd={() => setLoading(false)}
           onNavigationStateChange={onNavChange}
           onMessage={onMessage}
