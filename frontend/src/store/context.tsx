@@ -28,6 +28,7 @@ export interface StockItem {
   fees?: number;
   boostCost?: number;
   sourceId?: string;  // Vinted listing ID for dedup on re-import
+  lastRepostDate?: string;
 }
 
 export interface Vente {
