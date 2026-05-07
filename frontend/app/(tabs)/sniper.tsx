@@ -55,6 +55,7 @@ export default function SniperScreen() {
   const [active, setActive] = useState(false);
   const [checking, setChecking] = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
+  const [lastCheckOk, setLastCheckOk] = useState<boolean | null>(null);
   const [countdown, setCountdown] = useState(0);
 
   // New rule form
@@ -94,17 +95,21 @@ export default function SniperScreen() {
     if (enabledCount === 0) return;
 
     setChecking(true);
+    let ok = false;
     try {
       const newHits = await runSniperCheck(currentRules);
+      ok = true;
       if (newHits.length > 0) {
         setHits((prev) => [...newHits, ...prev].slice(0, 100));
       }
-      // Refresh rules to get updated hitsCount
       const updatedRules = await loadRules();
       setRules(updatedRules);
+    } catch {
+      // network error — don't update lastCheck so user knows it failed
     } finally {
       setChecking(false);
-      setLastCheck(new Date());
+      if (ok) setLastCheck(new Date());
+      setLastCheckOk(ok);
       setCountdown(FOREGROUND_INTERVAL_MS / 1000);
     }
   }, [rules]);
@@ -224,9 +229,14 @@ export default function SniperScreen() {
                   ? `${activeRulesCount} règle${activeRulesCount > 1 ? "s" : ""} prête${activeRulesCount > 1 ? "s" : ""}`
                   : "Aucune règle active"}
               </Text>
-              {lastCheck && (
+              {lastCheck && lastCheckOk && (
                 <Text style={styles.statusTime}>
-                  Dernière vérif : {lastCheck.toLocaleTimeString("fr-FR")}
+                  ✓ Vérif OK : {lastCheck.toLocaleTimeString("fr-FR")}
+                </Text>
+              )}
+              {lastCheckOk === false && (
+                <Text style={[styles.statusTime, { color: colors.urgent }]}>
+                  ✗ Pas de réseau — en attente…
                 </Text>
               )}
             </View>
