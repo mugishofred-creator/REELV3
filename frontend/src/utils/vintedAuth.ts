@@ -39,18 +39,37 @@ export async function isAuthenticated(): Promise<boolean> {
 
 const UA = "com.vinted.android/24.6.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014)";
 
+const BROWSER_UA = "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const [token, cookie] = await Promise.all([getVintedToken(), getVintedCookie()]);
-  const headers: Record<string, string> = {
+
+  // Bearer token (OAuth mobile) → headers Android app
+  if (token && token !== "session") {
+    return {
+      "User-Agent": UA,
+      Accept: "application/json, text/plain, */*",
+      "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+      "Authorization": `Bearer ${token}`,
+    };
+  }
+
+  // Cookie web session → headers navigateur (cohérent avec la session)
+  if (cookie) {
+    return {
+      "User-Agent": BROWSER_UA,
+      Accept: "application/json, text/plain, */*",
+      "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+      "Cookie": cookie,
+      "Origin": "https://www.vinted.fr",
+      "Referer": "https://www.vinted.fr/",
+    };
+  }
+
+  // Pas d'auth
+  return {
     "User-Agent": UA,
     Accept: "application/json, text/plain, */*",
     "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
   };
-  if (token && token !== "session") {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  if (cookie) {
-    headers["Cookie"] = cookie;
-  }
-  return headers;
 }
