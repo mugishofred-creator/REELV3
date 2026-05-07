@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   clients: "vm:clients",
   retours: "vm:retours",
   niches: "vm:niches",
+  goals: "vm:goals",
 };
 
 export async function loadJSON<T>(key: string, fallback: T): Promise<T> {

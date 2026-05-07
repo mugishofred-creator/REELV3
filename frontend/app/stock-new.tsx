@@ -21,6 +21,10 @@ export default function StockNew() {
   const [favorites, setFavorites] = useState("0");
   const [daysOnline, setDaysOnline] = useState("0");
   const [defect, setDefect] = useState(false);
+  const [fees, setFees] = useState("0");
+  const [datePublication, setDatePublication] = useState(
+    new Date().toISOString().split("T")[0]
+  );
   const [image, setImage] = useState<string | undefined>(undefined);
 
   const save = () => {
@@ -42,6 +46,10 @@ export default function StockNew() {
       repostCount: 0,
       sold: false,
       image,
+      fees: Number(fees) || 0,
+      datePublication: datePublication
+        ? new Date(datePublication).toISOString()
+        : undefined,
     });
     router.back();
   };
@@ -91,7 +99,24 @@ export default function StockNew() {
               testID="stock-new-sell"
             />
           </View>
+          <View style={{ flex: 1 }}>
+            <Input
+              label="Frais (€)"
+              value={fees}
+              onChangeText={setFees}
+              keyboardType="numeric"
+              testID="stock-new-fees"
+            />
+          </View>
         </View>
+
+        <Input
+          label="Date de publication (YYYY-MM-DD)"
+          value={datePublication}
+          onChangeText={setDatePublication}
+          placeholder="Ex: 2025-05-01"
+          testID="stock-new-date"
+        />
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>

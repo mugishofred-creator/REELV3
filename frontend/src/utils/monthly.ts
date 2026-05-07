@@ -36,8 +36,19 @@ export function computeMonthlyStats(ventes: Vente[]): MonthStat[] {
   const res: MonthStat[] = [];
   map.forEach((list, key) => {
     const revenue = list.reduce((s, v) => s + v.sellPrice, 0);
-    const cost = list.reduce((s, v) => s + v.buyPrice, 0);
-    const profit = revenue - cost;
+    const totalCost = list.reduce(
+      (s, v) => s + v.buyPrice + (v.fees || 0) + (v.boostCost || 0),
+      0
+    );
+    const profit = list.reduce(
+      (s, v) =>
+        s +
+        v.sellPrice -
+        v.buyPrice -
+        (v.fees || 0) -
+        (v.boostCost || 0),
+      0
+    );
     const avgDelay =
       list.reduce((s, v) => s + (v.delay || 0), 0) / Math.max(1, list.length);
     const [y, m] = key.split("-");
@@ -48,7 +59,7 @@ export function computeMonthlyStats(ventes: Vente[]): MonthStat[] {
       revenue: Math.round(revenue * 100) / 100,
       profit: Math.round(profit * 100) / 100,
       avgDelay: Math.round(avgDelay * 10) / 10,
-      roi: cost > 0 ? Math.round((profit / cost) * 100) / 100 : 0,
+      roi: totalCost > 0 ? Math.round((profit / totalCost) * 100) / 100 : 0,
     });
   });
   return res.sort((a, b) => (a.key < b.key ? 1 : -1));

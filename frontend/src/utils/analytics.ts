@@ -287,6 +287,126 @@ export function computeDashboard(
   };
 }
 
+// ---------- DASHBOARD (version depuis analyses pré-calculées) ----------
+export function computeDashboardFromAnalyzed(
+  analyzed: Array<{ item: StockItem; analysis: ItemAnalysis }>,
+  ventes: Vente[]
+): DashboardKpis {
+  let ca = 0;
+  let benefice = 0;
+  let cost = 0;
+  let delaySum = 0;
+  let delayCount = 0;
+
+  ventes.forEach((v) => {
+    if (v.sellPrice > 0) ca += v.sellPrice;
+    if (v.buyPrice > 0 && v.sellPrice > 0) {
+      const fees = v.fees ?? 0;
+      const bc = v.boostCost ?? 0;
+      benefice += v.sellPrice - v.buyPrice - fees - bc;
+      cost += v.buyPrice;
+    }
+    if (v.delay > 0) {
+      delaySum += v.delay;
+      delayCount++;
+    }
+  });
+
+  const roi = cost > 0 ? (benefice / cost) * 100 : 0;
+  const avgDelay = delayCount > 0 ? delaySum / delayCount : 0;
+  const stockBlocked = analyzed.reduce((s, { item }) => s + (item.buyPrice || 0), 0);
+
+  let toBaisser = 0;
+  let toLiquider = 0;
+  let boostable = 0;
+  analyzed.forEach(({ analysis: a }) => {
+    if (a.action === "BAISSER" || a.action === "BAISSE_IMMEDIATE") toBaisser++;
+    if (a.action === "LIQUIDER" || a.action === "SUPPRIMER") toLiquider++;
+    if (a.boost.verdict === "BOOST") boostable++;
+  });
+
+  return {
+    ca: Math.round(ca * 100) / 100,
+    benefice: Math.round(benefice * 100) / 100,
+    roi: Math.round(roi * 10) / 10,
+    avgDelay: Math.round(avgDelay * 10) / 10,
+    stockBlocked: Math.round(stockBlocked * 100) / 100,
+    itemsCount: analyzed.length,
+    toBaisser,
+    toLiquider,
+    boostable,
+  };
+}
+
+// ---------- BUSINESS HEALTH SCORE ----------
+export interface HealthScore {
+  score: number; // 0-100
+  label: "EXCELLENT" | "BON" | "MOYEN" | "FAIBLE" | "CRITIQUE";
+  color: string;
+  breakdown: { roi: number; delay: number; deadStock: number; returns: number };
+}
+
+export function businessHealthScore(
+  kpis: DashboardKpis,
+  analyzed: Array<{ analysis: ItemAnalysis }>,
+  ventes: Vente[],
+  retours: Retour[]
+): HealthScore {
+  let roiPts = 0, delayPts = 0, deadPts = 0, returnPts = 0;
+
+  if (kpis.roi >= 50) roiPts = 35;
+  else if (kpis.roi >= 35) roiPts = 28;
+  else if (kpis.roi >= 20) roiPts = 20;
+  else if (kpis.roi >= 10) roiPts = 12;
+  else if (kpis.roi >= 0) roiPts = 5;
+
+  if (kpis.avgDelay === 0) delayPts = 15;
+  else if (kpis.avgDelay <= 5) delayPts = 30;
+  else if (kpis.avgDelay <= 10) delayPts = 22;
+  else if (kpis.avgDelay <= 14) delayPts = 14;
+  else if (kpis.avgDelay <= 21) delayPts = 6;
+
+  const dead = analyzed.filter(
+    ({ analysis: a }) => a.action === "SUPPRIMER" || a.action === "LIQUIDER"
+  ).length;
+  const deadRate = analyzed.length > 0 ? dead / analyzed.length : 0;
+  if (deadRate === 0) deadPts = 20;
+  else if (deadRate < 0.1) deadPts = 16;
+  else if (deadRate < 0.2) deadPts = 10;
+  else if (deadRate < 0.4) deadPts = 4;
+
+  const retRate = ventes.length > 0 ? retours.length / ventes.length : 0;
+  if (retRate === 0) returnPts = 15;
+  else if (retRate < 0.05) returnPts = 12;
+  else if (retRate < 0.1) returnPts = 7;
+  else if (retRate < 0.2) returnPts = 3;
+
+  const score = roiPts + delayPts + deadPts + returnPts;
+  const label =
+    score >= 80
+      ? "EXCELLENT"
+      : score >= 60
+      ? "BON"
+      : score >= 40
+      ? "MOYEN"
+      : score >= 25
+      ? "FAIBLE"
+      : "CRITIQUE";
+
+  const color =
+    score >= 80
+      ? "#39FF14"
+      : score >= 60
+      ? "#7CFC00"
+      : score >= 40
+      ? "#FF9900"
+      : score >= 25
+      ? "#FF6B35"
+      : "#FF3366";
+
+  return { score, label, color, breakdown: { roi: roiPts, delay: delayPts, deadStock: deadPts, returns: returnPts } };
+}
+
 // ---------- SOURCING (amélioré) ----------
 const STRONG_CATEGORIES = [
   "carhartt",
