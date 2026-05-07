@@ -1,4 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  directFetchMarketPrice,
+  directFetchUserItems,
+  type DirectMarketData,
+  type DirectVintedItem,
+} from "./vintedDirect";
 
 const BACKEND_URL_KEY = "vm:backendUrl";
 const VINTED_USER_ID_KEY = "vm:vintedUserId";
@@ -33,55 +39,59 @@ export async function saveVintedUserId(id: string): Promise<void> {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface MarketData {
-  query: string;
-  count: number;
-  median: number;
-  average: number;
-  min: number;
-  max: number;
-  samples: { title: string; price: number; brand: string; photo: string }[];
-  error?: string;
-}
+export type MarketData = DirectMarketData & { error?: string };
+export type VintedItem = DirectVintedItem;
 
-export interface VintedItem {
-  id: string;
-  title: string;
-  price: number;
-  brand: string;
-  category: string;
-  photoUrl: string;
-  status: string;
-}
-
-// ── API calls ─────────────────────────────────────────────────────────────────
+// ── Core API — direct Android call, backend as fallback ───────────────────────
 
 export async function fetchMarketPrice(
   brand: string,
   category: string
 ): Promise<MarketData> {
-  const base = await getBackendUrl();
-  const params = new URLSearchParams({ brand, category });
-  const res = await fetch(`${base}/api/vinted/market-price?${params}`, {
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { detail?: string }).detail || `HTTP ${res.status}`);
+  // 1. Try direct from the phone (no backend needed)
+  try {
+    const data = await directFetchMarketPrice(brand, category);
+    return data;
+  } catch (directErr) {
+    // 2. Fallback to backend proxy if direct call fails
+    try {
+      const base = await getBackendUrl();
+      const params = new URLSearchParams({ brand, category });
+      const res = await fetch(`${base}/api/vinted/market-price?${params}`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { detail?: string }).detail || `HTTP ${res.status}`);
+      }
+      return res.json() as Promise<MarketData>;
+    } catch {
+      // Re-throw the original direct error so the message is meaningful
+      throw directErr;
+    }
   }
-  return res.json() as Promise<MarketData>;
 }
 
 export async function fetchUserItems(userId: string): Promise<VintedItem[]> {
-  const base = await getBackendUrl();
-  const res = await fetch(`${base}/api/vinted/user-items/${userId}`, {
-    signal: AbortSignal.timeout(20000),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { detail?: string }).detail || `HTTP ${res.status}`);
+  // 1. Try direct from the phone
+  try {
+    return await directFetchUserItems(userId);
+  } catch (directErr) {
+    // 2. Fallback to backend proxy
+    try {
+      const base = await getBackendUrl();
+      const res = await fetch(`${base}/api/vinted/user-items/${userId}`, {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { detail?: string }).detail || `HTTP ${res.status}`);
+      }
+      return res.json() as Promise<VintedItem[]>;
+    } catch {
+      throw directErr;
+    }
   }
-  return res.json() as Promise<VintedItem[]>;
 }
 
 export async function pingBackend(): Promise<boolean> {
@@ -91,7 +101,7 @@ export async function pingBackend(): Promise<boolean> {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return false;
-    const data = await res.json() as { ok?: boolean };
+    const data = (await res.json()) as { ok?: boolean };
     return data.ok === true;
   } catch {
     return false;
@@ -100,7 +110,7 @@ export async function pingBackend(): Promise<boolean> {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Extract numeric Vinted user ID from a URL or raw input.
+/** Parse a Vinted profile URL or raw ID into a numeric user ID string.
  *  Accepts: "12345", "12345-username", "vinted.fr/member/12345-username" */
 export function extractUserId(input: string): string {
   const trimmed = input.trim();

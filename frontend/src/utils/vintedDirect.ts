@@ -1,0 +1,165 @@
+/**
+ * Direct Vinted API calls from React Native (no backend needed).
+ *
+ * React Native's fetch() is a native HTTP client — not a browser.
+ * Datadome's JS challenges never execute, so public Vinted endpoints
+ * are reachable with a realistic Android User-Agent.
+ */
+
+const VINTED_BASE = "https://www.vinted.fr/api/v2";
+
+const ANDROID_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "com.vinted.android/24.6.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014)",
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+  "X-Device-Id": "android",
+  "X-Forwarded-For": "",
+};
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface DirectMarketData {
+  query: string;
+  count: number;
+  median: number;
+  average: number;
+  min: number;
+  max: number;
+  samples: { title: string; price: number; brand: string; photo: string }[];
+}
+
+export interface DirectVintedItem {
+  id: string;
+  title: string;
+  price: number;
+  brand: string;
+  category: string;
+  photoUrl: string;
+  status: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function parsePrice(raw: unknown): number {
+  if (raw && typeof raw === "object" && "amount" in raw) {
+    return parseFloat((raw as { amount: string }).amount) || 0;
+  }
+  return parseFloat(String(raw ?? 0)) || 0;
+}
+
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+async function vintedGet(path: string, params: Record<string, string | number>): Promise<unknown> {
+  const url = new URL(`${VINTED_BASE}${path}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: ANDROID_HEADERS,
+    signal: AbortSignal.timeout(12000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Vinted ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── Market price ──────────────────────────────────────────────────────────────
+
+export async function directFetchMarketPrice(
+  brand: string,
+  category: string
+): Promise<DirectMarketData> {
+  const query = `${brand} ${category}`.trim();
+
+  const data = await vintedGet("/catalog/items", {
+    search_text: query,
+    per_page: 96,
+    page: 1,
+    order: "relevance",
+  }) as { items?: unknown[] };
+
+  const items = data.items ?? [];
+  const prices: number[] = [];
+  const samples: DirectMarketData["samples"] = [];
+
+  for (const item of items as Record<string, unknown>[]) {
+    const price = parsePrice(item.price);
+    if (price <= 0) continue;
+    prices.push(price);
+
+    if (samples.length < 12) {
+      const photos = (item.photos as { url?: string; full_size_url?: string }[] | undefined) ?? [];
+      const photo = photos[0]?.url ?? photos[0]?.full_size_url ?? "";
+      samples.push({
+        title: String(item.title ?? ""),
+        price,
+        brand: String(item.brand_title ?? ""),
+        photo,
+      });
+    }
+  }
+
+  if (prices.length === 0) {
+    return { query, count: 0, median: 0, average: 0, min: 0, max: 0, samples: [] };
+  }
+
+  const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+
+  return {
+    query,
+    count: prices.length,
+    median: Math.round(median(prices) * 100) / 100,
+    average: Math.round(avg * 100) / 100,
+    min: Math.round(Math.min(...prices) * 100) / 100,
+    max: Math.round(Math.max(...prices) * 100) / 100,
+    samples,
+  };
+}
+
+// ── User catalogue ────────────────────────────────────────────────────────────
+
+export async function directFetchUserItems(userId: string): Promise<DirectVintedItem[]> {
+  const allItems: DirectVintedItem[] = [];
+  let page = 1;
+
+  while (page <= 5) {
+    const data = await vintedGet(`/users/${userId}/items`, {
+      page,
+      per_page: 100,
+      order: "newest_first",
+    }) as { items?: unknown[]; pagination?: { total_pages?: number } };
+
+    const batch = (data.items ?? []) as Record<string, unknown>[];
+    if (batch.length === 0) break;
+
+    for (const item of batch) {
+      const photos = (item.photos as { url?: string; full_size_url?: string }[] | undefined) ?? [];
+      const photoUrl = photos[0]?.url ?? photos[0]?.full_size_url ?? "";
+      allItems.push({
+        id: String(item.id ?? ""),
+        title: String(item.title ?? ""),
+        price: parsePrice(item.price),
+        brand: String(item.brand_title ?? ""),
+        category: String(item.category_title ?? ""),
+        photoUrl,
+        status: String(item.status ?? ""),
+      });
+    }
+
+    const totalPages = data.pagination?.total_pages ?? 1;
+    if (page >= totalPages) break;
+    page++;
+  }
+
+  return allItems;
+}
