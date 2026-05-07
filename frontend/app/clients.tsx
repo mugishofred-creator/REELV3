@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Clipboard } from "react-native";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Input } from "../src/components/Input";
 import { Button } from "../src/components/Button";
@@ -7,6 +7,7 @@ import { Card } from "../src/components/Card";
 import { Badge } from "../src/components/Badge";
 import { colors } from "../src/theme/colors";
 import { useData, Client } from "../src/store/context";
+import { DEFAULT_TEMPLATES, fillTemplate, CATEGORY_LABELS, type TemplateCategory } from "../src/utils/templates";
 
 const STATUSES: { key: Client["status"]; label: string; tone: "good" | "warning" | "urgent" }[] = [
   { key: "interesse", label: "Intéressé", tone: "good" },
@@ -14,10 +15,15 @@ const STATUSES: { key: Client["status"]; label: string; tone: "good" | "warning"
   { key: "sans_reponse", label: "Sans réponse", tone: "urgent" },
 ];
 
+const CATEGORIES: TemplateCategory[] = ["refus", "negociation", "port", "relance", "lot"];
+
 export default function ClientsScreen() {
   const { clients, addClient, updateClient, deleteClient } = useData();
   const [pseudo, setPseudo] = useState("");
   const [product, setProduct] = useState("");
+  const [templateClientId, setTemplateClientId] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<TemplateCategory>("negociation");
+  const [copied, setCopied] = useState<string | null>(null);
 
   const save = () => {
     if (!pseudo.trim() || !product.trim()) {
@@ -27,6 +33,21 @@ export default function ClientsScreen() {
     addClient({ pseudo: pseudo.trim(), product: product.trim(), status: "interesse" });
     setPseudo("");
     setProduct("");
+  };
+
+  const copyTemplate = (tplId: string, client: Client) => {
+    const tpl = DEFAULT_TEMPLATES.find((t) => t.id === tplId);
+    if (!tpl) return;
+    const filled = fillTemplate(tpl, {
+      pseudo: client.pseudo,
+      produit: client.product,
+      prix: "",
+      contre: "",
+      offre: "",
+    });
+    Clipboard.setString(filled);
+    setCopied(tplId);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const needsRelaunch = (c: Client) => {
@@ -83,6 +104,51 @@ export default function ClientsScreen() {
                 ))}
               </View>
 
+              {/* ── Templates ── */}
+              <TouchableOpacity
+                style={styles.tplToggle}
+                onPress={() => setTemplateClientId(templateClientId === c.id ? null : c.id)}
+              >
+                <Text style={styles.tplToggleText}>
+                  {templateClientId === c.id ? "▲ Masquer les templates" : "💬 Templates de message"}
+                </Text>
+              </TouchableOpacity>
+
+              {templateClientId === c.id && (
+                <View style={styles.tplPanel}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+                    {CATEGORIES.map((cat) => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[styles.catChip, activeCategory === cat && styles.catChipActive]}
+                        onPress={() => setActiveCategory(cat)}
+                      >
+                        <Text style={[styles.catText, activeCategory === cat && styles.catTextActive]}>
+                          {CATEGORY_LABELS[cat]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  {DEFAULT_TEMPLATES.filter((t) => t.category === activeCategory).map((tpl) => (
+                    <TouchableOpacity
+                      key={tpl.id}
+                      style={styles.tplCard}
+                      onPress={() => copyTemplate(tpl.id, c)}
+                    >
+                      <View style={styles.tplRow}>
+                        <Text style={styles.tplName}>{tpl.name}</Text>
+                        <Text style={[styles.tplCopy, copied === tpl.id && { color: colors.good }]}>
+                          {copied === tpl.id ? "✓ Copié !" : "Copier"}
+                        </Text>
+                      </View>
+                      <Text style={styles.tplPreview} numberOfLines={2}>
+                        {fillTemplate(tpl, { pseudo: c.pseudo, produit: c.product, prix: "XX", contre: "XX", offre: "XX" })}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
               <TouchableOpacity
                 onPress={() => deleteClient(c.id)}
                 style={styles.delete}
@@ -120,7 +186,7 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
   statusChip: { opacity: 0.5 },
   statusChipActive: { opacity: 1 },
-  delete: { alignSelf: "flex-end" },
+  delete: { alignSelf: "flex-end", marginTop: 6 },
   deleteText: {
     color: colors.urgent,
     fontSize: 11,
@@ -129,4 +195,18 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   empty: { color: colors.textMuted, textAlign: "center" },
+
+  tplToggle: { paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.borderSoft, marginTop: 4 },
+  tplToggleText: { color: colors.info, fontSize: 12, fontWeight: "700" },
+  tplPanel: { marginTop: 8 },
+  catScroll: { marginBottom: 10 },
+  catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: colors.border, marginRight: 6 },
+  catChipActive: { backgroundColor: colors.goodGlow, borderColor: colors.good },
+  catText: { color: colors.textMuted, fontSize: 12, fontWeight: "700" },
+  catTextActive: { color: colors.good },
+  tplCard: { backgroundColor: colors.surfaceElevated, borderRadius: 10, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: colors.borderSoft },
+  tplRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  tplName: { color: colors.textPrimary, fontSize: 12, fontWeight: "900" },
+  tplCopy: { color: colors.info, fontSize: 11, fontWeight: "800" },
+  tplPreview: { color: colors.textMuted, fontSize: 11, lineHeight: 16 },
 });

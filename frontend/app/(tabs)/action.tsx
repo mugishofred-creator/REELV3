@@ -6,16 +6,16 @@ import { Card, SectionTitle } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
 import { Thumb } from "../../src/components/Thumb";
-import { ProgressBar } from "../../src/components/ProgressBar";
 import { colors } from "../../src/theme/colors";
 import { shouldRepost, forceDelete, suggestedPrice } from "../../src/utils/logic";
 import { useAnalyzedStock } from "../../src/hooks/useAnalyzedStock";
+import { computeBestHours } from "../../src/utils/marketHistory";
 
 export default function ActionScreen() {
-  const { ventes, clients, deleteStock, updateStock, updateClient } = useData();
+  const { ventes, clients, stock, deleteStock, updateStock, updateClient } = useData();
   const analyzed = useAnalyzedStock();
 
-  const { toDelete, toDrop, toRepost, toRelaunch, total } = useMemo(() => {
+  const { toDelete, toDrop, toRepost, toRelaunch, toBoost, total } = useMemo(() => {
     const toDelete: typeof analyzed[0]["item"][] = [];
     const toDrop: { item: typeof analyzed[0]["item"]; suggested: number; label: string }[] = [];
     const toRepost: typeof analyzed[0]["item"][] = [];
@@ -40,10 +40,23 @@ export default function ActionScreen() {
       return c.status === "sans_reponse" && diffH >= 24;
     });
 
-    const total = toDelete.length + toDrop.length + toRepost.length + toRelaunch.length;
-    return { toDelete, toDrop, toRepost, toRelaunch, total };
-  }, [analyzed, ventes, clients]);
+    // Boost: articles en ligne >5j, <15 vues, pas déjà dans repost/delete
+    const deleteIds = new Set(toDelete.map((i) => i.id));
+    const repostIds = new Set(toRepost.map((i) => i.id));
+    const toBoost = stock.filter((i) =>
+      !i.sold &&
+      !deleteIds.has(i.id) &&
+      !repostIds.has(i.id) &&
+      (i.daysOnline ?? 0) >= 5 &&
+      (i.views ?? 0) < 15
+    );
 
+    const total = toDelete.length + toDrop.length + toRepost.length + toRelaunch.length + toBoost.length;
+    return { toDelete, toDrop, toRepost, toRelaunch, toBoost, total };
+  }, [analyzed, ventes, clients, stock]);
+
+  const bestHours = useMemo(() => computeBestHours(ventes.map((v) => v.date), 3), [ventes]);
+  const bestHourLabel = bestHours[0]?.label ?? null;
   const nothing = total === 0;
 
   return (
@@ -90,6 +103,13 @@ export default function ActionScreen() {
               <View style={[styles.pill, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder }]}>
                 <Text style={[styles.pillText, { color: colors.warning }]}>
                   💬 {toRelaunch.length} clients
+                </Text>
+              </View>
+            )}
+            {toBoost.length > 0 && (
+              <View style={[styles.pill, { backgroundColor: colors.infoBg, borderColor: colors.infoBorder }]}>
+                <Text style={[styles.pillText, { color: colors.info }]}>
+                  ⚡ {toBoost.length} boosts
                 </Text>
               </View>
             )}
@@ -238,6 +258,37 @@ export default function ActionScreen() {
           )}
         </>
       )}
+
+          {/* ── BOOSTER ── */}
+          {toBoost.length > 0 && (
+            <>
+              <SectionTitle
+                title="À booster"
+                subtitle={`${toBoost.length} article${toBoost.length > 1 ? "s" : ""} — peu de vues, boost recommandé${bestHourLabel ? ` · Meilleure heure : ${bestHourLabel}` : ""}`}
+              />
+              {toBoost.map((i) => (
+                <Card key={i.id} style={styles.card} testID={`action-boost-${i.id}`}>
+                  <View style={styles.rowHead}>
+                    <Thumb uri={i.image} size={48} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name}>{i.name}</Text>
+                      <Text style={styles.meta}>{i.brand} · {i.daysOnline}j en ligne · {i.views} vues</Text>
+                    </View>
+                    <Badge label="BOOSTER" tone="info" />
+                  </View>
+                  {bestHourLabel && (
+                    <Text style={styles.hint}>⚡ Booste entre {bestHourLabel} pour max visibilité</Text>
+                  )}
+                  <Button
+                    label="Marquer comme boosté"
+                    variant="secondary"
+                    onPress={() => updateStock(i.id, { views: (i.views || 0) + 5 })}
+                    testID={`action-boost-btn-${i.id}`}
+                  />
+                </Card>
+              ))}
+            </>
+          )}
 
       <View style={{ height: 40 }} />
     </ScrollView>

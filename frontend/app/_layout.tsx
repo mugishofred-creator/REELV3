@@ -74,6 +74,9 @@ export default function RootLayout() {
             <Stack.Screen name="clients" options={{ presentation: "modal" }} />
             <Stack.Screen name="retours" options={{ presentation: "modal" }} />
             <Stack.Screen name="stock-new" options={{ presentation: "modal" }} />
+            <Stack.Screen name="competitors" options={{ presentation: "modal" }} />
+            <Stack.Screen name="fiscal" options={{ presentation: "modal" }} />
+            <Stack.Screen name="niche-scanner" options={{ presentation: "modal" }} />
           </Stack>
         </View>
       </DataProvider>
