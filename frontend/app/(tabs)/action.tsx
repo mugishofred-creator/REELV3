@@ -6,7 +6,6 @@ import { Card, SectionTitle } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
 import { Thumb } from "../../src/components/Thumb";
-import { ProgressBar } from "../../src/components/ProgressBar";
 import { colors } from "../../src/theme/colors";
 import { shouldRepost, forceDelete, suggestedPrice } from "../../src/utils/logic";
 import { useAnalyzedStock } from "../../src/hooks/useAnalyzedStock";

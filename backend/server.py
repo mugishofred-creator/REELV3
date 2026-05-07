@@ -8,7 +8,7 @@ import asyncio
 import statistics as st
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List
 import uuid
 from datetime import datetime
 import requests as http_req
