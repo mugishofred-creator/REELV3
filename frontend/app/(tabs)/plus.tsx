@@ -55,6 +55,8 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
   const onMessage = async (e: WebViewMessageEvent) => {
     try {
       const { token, login, cookie } = JSON.parse(e.nativeEvent.data) as { token: string; login: string; cookie: string };
+      // Ne marquer comme connecté que si on a vraiment des credentials
+      if (!token && !cookie) return;
       await saveVintedSession({
         token: token || undefined,
         cookie: cookie || undefined,
