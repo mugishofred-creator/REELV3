@@ -65,8 +65,9 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
   };
 
   const tryInjectAndConfirm = async () => {
-    // 1. Récupère les cookies natifs (inclut HttpOnly) — la vraie session Vinted
     try {
+      // Flush force l'écriture des cookies WebView dans le store natif Android
+      await CookieManager.flush();
       const cookies = await CookieManager.get("https://www.vinted.fr");
       const cookieStr = Object.entries(cookies)
         .map(([k, v]) => `${k}=${(v as { value: string }).value}`)
@@ -76,9 +77,9 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
         onSuccess("compte Vinted");
         return;
       }
-    } catch { /* ignore, fallback to JS injection */ }
+    } catch { /* ignore */ }
 
-    // 2. Fallback : injection JS pour tenter de récupérer le Bearer token
+    // Fallback : injection JS (Bearer token)
     if (webRef.current) {
       webRef.current.injectJavaScript(INJECT_JS);
     }
