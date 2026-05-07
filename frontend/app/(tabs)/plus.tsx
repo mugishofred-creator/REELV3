@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { WebView } from "react-native-webview";
 import type { WebViewMessageEvent } from "react-native-webview";
+import CookieManager from "@react-native-cookies/cookies";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "../../src/components/ScreenHeader";
@@ -63,7 +64,21 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
     } catch { /* ignore */ }
   };
 
-  const tryInjectAndConfirm = () => {
+  const tryInjectAndConfirm = async () => {
+    // 1. Récupère les cookies natifs (inclut HttpOnly) — la vraie session Vinted
+    try {
+      const cookies = await CookieManager.get("https://www.vinted.fr");
+      const cookieStr = Object.entries(cookies)
+        .map(([k, v]) => `${k}=${(v as { value: string }).value}`)
+        .join("; ");
+      if (cookieStr) {
+        await saveVintedSession({ cookie: cookieStr, login: "compte Vinted" });
+        onSuccess("compte Vinted");
+        return;
+      }
+    } catch { /* ignore, fallback to JS injection */ }
+
+    // 2. Fallback : injection JS pour tenter de récupérer le Bearer token
     if (webRef.current) {
       webRef.current.injectJavaScript(INJECT_JS);
     }
