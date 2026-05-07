@@ -46,6 +46,7 @@ true;
 function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => void; onClose: () => void }) {
   const webRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   const onMessage = async (e: WebViewMessageEvent) => {
     try {
@@ -58,14 +59,31 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
     } catch { /* ignore */ }
   };
 
+  const tryInjectAndConfirm = () => {
+    if (webRef.current) {
+      webRef.current.injectJavaScript(INJECT_JS);
+    }
+    // Fallback: si le token n'arrive pas en 3s, on confirme sans token
+    setTimeout(async () => {
+      const token = await AsyncStorage.getItem("vm:vintedToken");
+      if (!token) {
+        // Sauvegarde une valeur générique pour marquer comme connecté
+        await AsyncStorage.setItem("vm:vintedToken", "session");
+        await AsyncStorage.setItem("vm:vintedLogin", "compte Vinted");
+        onSuccess("compte Vinted");
+      }
+    }, 3000);
+  };
+
   const onNavChange = (state: { url: string }) => {
     const url = state.url || "";
     const isAuth = url.includes("/signup") || url.includes("/login") ||
       url.includes("/oauth") || url.includes("/auth") ||
-      url.includes("accounts.google") || url.includes("appleid.apple");
-    const isHome = url.match(/vinted\.fr\/?(\?|#|$)/);
-    if (!isAuth && isHome && webRef.current) {
-      webRef.current.injectJavaScript(INJECT_JS);
+      url.includes("accounts.google") || url.includes("appleid.apple") ||
+      url.includes("select_type");
+    if (!isAuth && url.includes("vinted.fr")) {
+      setConfirmVisible(true);
+      if (webRef.current) webRef.current.injectJavaScript(INJECT_JS);
     }
   };
 
@@ -78,6 +96,11 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
             <Text style={wStyles.closeText}>Fermer</Text>
           </TouchableOpacity>
         </View>
+        {confirmVisible && (
+          <TouchableOpacity style={wStyles.confirmBtn} onPress={tryInjectAndConfirm}>
+            <Text style={wStyles.confirmText}>✓ Je suis connecté — Continuer</Text>
+          </TouchableOpacity>
+        )}
         {loading && (
           <View style={wStyles.loader}>
             <ActivityIndicator size="large" color={colors.good} />
@@ -105,6 +128,8 @@ const wStyles = StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: 16, fontWeight: "700" },
   closeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.surfaceElevated },
   closeText: { color: colors.textSecondary, fontSize: 14, fontWeight: "600" },
+  confirmBtn: { backgroundColor: colors.good, padding: 14, alignItems: "center" },
+  confirmText: { color: colors.bg, fontWeight: "800", fontSize: 14 },
   loader: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, zIndex: 10 },
   loaderText: { color: colors.textMuted, fontSize: 13, marginTop: 10 },
 });
