@@ -128,19 +128,22 @@ function parsePrice(raw: unknown): number {
 }
 
 async function searchNewest(keywords: string, maxPrice: number): Promise<unknown[]> {
-  const params = new URLSearchParams({
-    search_text: keywords,
-    price_to: String(maxPrice),
-    per_page: "20",
-    order: "newest_first",
-  });
-  const res = await fetch(`${VINTED_BASE}/catalog/items?${params}`, {
-    headers: HEADERS,
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  return (data as { items?: unknown[] }).items ?? [];
+  const qs = `search_text=${encodeURIComponent(keywords)}&price_to=${maxPrice}&per_page=20&order=newest_first`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${VINTED_BASE}/catalog/items?${qs}`, {
+      headers: HEADERS,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return (data as { items?: unknown[] }).items ?? [];
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
 }
 
 // ── Core check: run all active rules in parallel ──────────────────────────────

@@ -45,20 +45,23 @@ function median(arr: number[]): number {
 }
 
 async function searchVinted(query: string, maxPrice?: number, page = 1): Promise<unknown[]> {
-  const params = new URLSearchParams({
-    search_text: query,
-    per_page: "96",
-    page: String(page),
-    order: "price_low_to_high",
-    ...(maxPrice ? { price_to: String(maxPrice) } : {}),
-  });
-  const res = await fetch(`${VINTED_BASE}/catalog/items?${params}`, {
-    headers: HEADERS,
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  return (data as { items?: unknown[] }).items ?? [];
+  let qs = `search_text=${encodeURIComponent(query)}&per_page=96&page=${page}&order=price_low_to_high`;
+  if (maxPrice) qs += `&price_to=${maxPrice}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(`${VINTED_BASE}/catalog/items?${qs}`, {
+      headers: HEADERS,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return (data as { items?: unknown[] }).items ?? [];
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────

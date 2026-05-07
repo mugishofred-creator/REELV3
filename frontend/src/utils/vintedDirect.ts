@@ -58,19 +58,24 @@ function median(arr: number[]): number {
 }
 
 async function vintedGet(path: string, params: Record<string, string | number>): Promise<unknown> {
-  const url = new URL(`${VINTED_BASE}${path}`);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+  const qs = Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
+  const url = `${VINTED_BASE}${path}?${qs}`;
 
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    headers: ANDROID_HEADERS,
-    signal: AbortSignal.timeout(12000),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Vinted ${res.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: ANDROID_HEADERS,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`Vinted ${res.status}`);
+    return res.json();
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
   }
-  return res.json();
 }
 
 // ── Market price ──────────────────────────────────────────────────────────────

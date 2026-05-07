@@ -57,9 +57,11 @@ export async function fetchMarketPrice(
     try {
       const base = await getBackendUrl();
       const params = new URLSearchParams({ brand, category });
+      const ctrl1 = new AbortController();
+      const t1 = setTimeout(() => ctrl1.abort(), 15000);
       const res = await fetch(`${base}/api/vinted/market-price?${params}`, {
-        signal: AbortSignal.timeout(15000),
-      });
+        signal: ctrl1.signal,
+      }).finally(() => clearTimeout(t1));
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { detail?: string }).detail || `HTTP ${res.status}`);
@@ -80,9 +82,11 @@ export async function fetchUserItems(userId: string): Promise<VintedItem[]> {
     // 2. Fallback to backend proxy
     try {
       const base = await getBackendUrl();
+      const ctrl2 = new AbortController();
+      const t2 = setTimeout(() => ctrl2.abort(), 20000);
       const res = await fetch(`${base}/api/vinted/user-items/${userId}`, {
-        signal: AbortSignal.timeout(20000),
-      });
+        signal: ctrl2.signal,
+      }).finally(() => clearTimeout(t2));
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { detail?: string }).detail || `HTTP ${res.status}`);
@@ -97,9 +101,11 @@ export async function fetchUserItems(userId: string): Promise<VintedItem[]> {
 export async function pingBackend(): Promise<boolean> {
   try {
     const base = await getBackendUrl();
+    const ctrl3 = new AbortController();
+    const t3 = setTimeout(() => ctrl3.abort(), 5000);
     const res = await fetch(`${base}/api/vinted/ping`, {
-      signal: AbortSignal.timeout(5000),
-    });
+      signal: ctrl3.signal,
+    }).finally(() => clearTimeout(t3));
     if (!res.ok) return false;
     const data = (await res.json()) as { ok?: boolean };
     return data.ok === true;
