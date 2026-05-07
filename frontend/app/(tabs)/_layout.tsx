@@ -58,6 +58,18 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="sniper"
+        options={{
+          title: "Sniper",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? "locate" : "locate-outline"} color={color} size={18} />
+            </View>
+          ),
+          tabBarButtonTestID: "tab-sniper",
+        }}
+      />
+      <Tabs.Screen
         name="plus"
         options={{
           title: "Plus",
@@ -81,9 +93,19 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   label: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
+  },
+  iconWrap: {
+    width: 32,
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  iconWrapActive: {
+    backgroundColor: colors.goodGlow,
   },
 });
