@@ -5,15 +5,17 @@ import { ScreenHeader } from "../../src/components/ScreenHeader";
 import { Card, SectionTitle } from "../../src/components/Card";
 import { StatCard } from "../../src/components/StatCard";
 import { MiniBarChart } from "../../src/components/MiniBarChart";
+import { ProgressBar } from "../../src/components/ProgressBar";
 import { colors } from "../../src/theme/colors";
 import { computeNiches } from "../../src/utils/logic";
 import { computeMonthlyStats } from "../../src/utils/monthly";
 import { computeRecords } from "../../src/utils/projections";
+import { computeBestHours } from "../../src/utils/marketHistory";
 
 export default function VentesScreen() {
   const { ventes } = useData();
 
-  const { stats, niches, monthly, chart, records } = useMemo(() => {
+  const { stats, niches, monthly, chart, records, bestHours } = useMemo(() => {
     const totalCA = ventes.reduce((s, v) => s + (v.sellPrice || 0), 0);
     const totalProfit = ventes.reduce(
       (s, v) => s + (v.sellPrice || 0) - (v.buyPrice || 0) - (v.fees || 0) - (v.boostCost || 0),
@@ -42,6 +44,7 @@ export default function VentesScreen() {
       monthly,
       chart,
       records: computeRecords(ventes),
+      bestHours: computeBestHours(ventes.map((v) => v.date), 5),
     };
   }, [ventes]);
 
@@ -198,6 +201,40 @@ export default function VentesScreen() {
         </Card>
       )}
 
+      {/* ── MEILLEURE HEURE ── */}
+      {bestHours.length >= 3 && (
+        <>
+          <SectionTitle title="Meilleure heure de publication" subtitle="Créneaux où tu vends le plus" />
+          <Card testID="ventes-best-hours">
+            {bestHours.map((h, i) => (
+              <View key={h.hour} style={[styles.hourRow, i < bestHours.length - 1 && styles.brandBorder]}>
+                <Text style={[styles.hourRank, { color: i === 0 ? colors.good : colors.textMuted }]}>
+                  #{i + 1}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.hourLabel}>{h.label}</Text>
+                </View>
+                <View style={styles.hourBarWrap}>
+                  <ProgressBar
+                    progress={h.count / bestHours[0].count}
+                    color={i === 0 ? colors.good : colors.info}
+                    height={5}
+                  />
+                </View>
+                <Text style={[styles.hourCount, { color: i === 0 ? colors.good : colors.textSecondary }]}>
+                  {h.count} vente{h.count > 1 ? "s" : ""}
+                </Text>
+              </View>
+            ))}
+            <View style={styles.hourTip}>
+              <Text style={styles.hourTipText}>
+                💡 Publie entre {bestHours[0].label} pour maximiser ta visibilité
+              </Text>
+            </View>
+          </Card>
+        </>
+      )}
+
       {/* ── HISTORIQUE ── */}
       <SectionTitle title="Dernières ventes" />
       {ventes.length === 0 ? (
@@ -275,4 +312,12 @@ const styles = StyleSheet.create({
   venteRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   venteName: { color: colors.textPrimary, fontSize: 13, fontWeight: "700" },
   venteProfit: { fontSize: 15, fontWeight: "900" },
+
+  hourRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 10 },
+  hourRank: { fontSize: 13, fontWeight: "900", width: 22 },
+  hourLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: "700" },
+  hourBarWrap: { flex: 1 },
+  hourCount: { fontSize: 12, fontWeight: "800", minWidth: 56, textAlign: "right" },
+  hourTip: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.borderSoft },
+  hourTipText: { color: colors.info, fontSize: 12, lineHeight: 17 },
 });

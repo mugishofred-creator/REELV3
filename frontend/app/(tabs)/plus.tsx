@@ -317,6 +317,10 @@ export default function PlusScreen() {
         </Card>
       )}
 
+      {/* ── CALCULATEUR DE LOTS ── */}
+      <SectionTitle title="Calculateur de lots" subtitle="Rentabilité d'un achat groupé" />
+      <LotCalculator />
+
       {/* ── OUTILS ── */}
       <SectionTitle title="Outils" />
       {MENU.map((m) => (
@@ -491,6 +495,103 @@ function ExportRow({ label, hint, onPress, testID }: { label: string; hint: stri
     </TouchableOpacity>
   );
 }
+
+function LotCalculator() {
+  const [lotPrice, setLotPrice] = useState("");
+  const [itemCount, setItemCount] = useState("");
+  const [feesPerItem, setFeesPerItem] = useState("3");
+  const [targetProfit, setTargetProfit] = useState("10");
+
+  const lot = Number(lotPrice) || 0;
+  const count = Math.max(1, Number(itemCount) || 1);
+  const fees = Number(feesPerItem) || 0;
+  const target = Number(targetProfit) || 0;
+
+  const costPerItem = lot / count;
+  const minSellPrice = costPerItem + fees + target;
+  const totalRevNeeded = minSellPrice * count;
+  const breakEvenCount = lot > 0 ? Math.ceil(lot / (minSellPrice - fees)) : 0;
+
+  const hasData = lot > 0 && Number(itemCount) > 0;
+
+  return (
+    <Card style={lcStyles.card} testID="lot-calculator">
+      <View style={lcStyles.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={lcStyles.label}>Prix du lot (€)</Text>
+          <TextInput style={lcStyles.input} value={lotPrice} onChangeText={setLotPrice}
+            placeholder="Ex : 40" placeholderTextColor={colors.textMuted}
+            keyboardType="numeric" testID="lot-price" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={lcStyles.label}>Nb d'articles</Text>
+          <TextInput style={lcStyles.input} value={itemCount} onChangeText={setItemCount}
+            placeholder="Ex : 15" placeholderTextColor={colors.textMuted}
+            keyboardType="numeric" testID="lot-count" />
+        </View>
+      </View>
+      <View style={lcStyles.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={lcStyles.label}>Frais / article (€)</Text>
+          <TextInput style={lcStyles.input} value={feesPerItem} onChangeText={setFeesPerItem}
+            placeholder="3" placeholderTextColor={colors.textMuted}
+            keyboardType="numeric" testID="lot-fees" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={lcStyles.label}>Profit cible / article (€)</Text>
+          <TextInput style={lcStyles.input} value={targetProfit} onChangeText={setTargetProfit}
+            placeholder="10" placeholderTextColor={colors.textMuted}
+            keyboardType="numeric" testID="lot-target" />
+        </View>
+      </View>
+
+      {hasData && (
+        <View style={lcStyles.results}>
+          <View style={lcStyles.resultRow}>
+            <Text style={lcStyles.resultLabel}>Coût par article</Text>
+            <Text style={lcStyles.resultValue}>{costPerItem.toFixed(2)} €</Text>
+          </View>
+          <View style={lcStyles.resultRow}>
+            <Text style={lcStyles.resultLabel}>Prix min de vente</Text>
+            <Text style={[lcStyles.resultValue, { color: colors.good }]}>{minSellPrice.toFixed(0)} €</Text>
+          </View>
+          <View style={lcStyles.resultRow}>
+            <Text style={lcStyles.resultLabel}>CA total nécessaire</Text>
+            <Text style={lcStyles.resultValue}>{totalRevNeeded.toFixed(0)} €</Text>
+          </View>
+          <View style={[lcStyles.resultRow, lcStyles.breakEvenRow]}>
+            <Text style={lcStyles.breakEvenLabel}>Seuil de rentabilité</Text>
+            <Text style={[lcStyles.breakEvenValue, { color: colors.warning }]}>
+              {breakEvenCount} article{breakEvenCount > 1 ? "s" : ""} vendus
+            </Text>
+          </View>
+          <Text style={lcStyles.tip}>
+            Les {count - breakEvenCount > 0 ? count - breakEvenCount : 0} article{count - breakEvenCount > 1 ? "s" : ""} restant{count - breakEvenCount > 1 ? "s" : ""} = pur profit
+          </Text>
+        </View>
+      )}
+    </Card>
+  );
+}
+
+const lcStyles = StyleSheet.create({
+  card: { marginBottom: 4 },
+  row: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  label: { color: colors.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginBottom: 5 },
+  input: {
+    backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
+    color: colors.textPrimary, fontSize: 14, fontWeight: "700",
+  },
+  results: { borderTopWidth: 1, borderTopColor: colors.borderSoft, paddingTop: 12, marginTop: 2 },
+  resultRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
+  resultLabel: { color: colors.textMuted, fontSize: 13 },
+  resultValue: { color: colors.textPrimary, fontSize: 14, fontWeight: "800" },
+  breakEvenRow: { borderTopWidth: 1, borderTopColor: colors.borderSoft, marginTop: 6, paddingTop: 10 },
+  breakEvenLabel: { color: colors.textSecondary, fontSize: 13, fontWeight: "700" },
+  breakEvenValue: { fontSize: 15, fontWeight: "900" },
+  tip: { color: colors.good, fontSize: 12, fontWeight: "700", marginTop: 8, textAlign: "center" },
+});
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
