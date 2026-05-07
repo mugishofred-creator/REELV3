@@ -2,17 +2,34 @@ import React from "react";
 import { View, Text, StyleSheet, ViewStyle } from "react-native";
 import { colors, radius, spacing } from "../theme/colors";
 
+const ACCENT_COLORS: Record<string, string> = {
+  good: colors.good,
+  urgent: colors.urgent,
+  warning: colors.warning,
+  info: colors.info,
+};
+
 export function Card({
   children,
   style,
   testID,
+  accent,
 }: {
   children: React.ReactNode;
   style?: ViewStyle | ViewStyle[];
   testID?: string;
+  accent?: "good" | "urgent" | "warning" | "info";
 }) {
+  const accentColor = accent ? ACCENT_COLORS[accent] : undefined;
   return (
-    <View style={[styles.card, style]} testID={testID}>
+    <View
+      style={[
+        styles.card,
+        accentColor ? { borderLeftWidth: 3, borderLeftColor: accentColor } : undefined,
+        style,
+      ]}
+      testID={testID}
+    >
       {children}
     </View>
   );

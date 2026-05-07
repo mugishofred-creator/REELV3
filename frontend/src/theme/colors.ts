@@ -11,6 +11,7 @@ export const colors = {
   good: "#39FF14",
   goodBg: "rgba(57,255,20,0.12)",
   goodBorder: "rgba(57,255,20,0.35)",
+  goodGlow: "rgba(57,255,20,0.15)",
   urgent: "#FF3366",
   urgentBg: "rgba(255,51,102,0.12)",
   urgentBorder: "rgba(255,51,102,0.35)",
@@ -20,6 +21,30 @@ export const colors = {
   info: "#4FC3FF",
   infoBg: "rgba(79,195,255,0.12)",
   infoBorder: "rgba(79,195,255,0.35)",
+};
+
+export const shadow = {
+  card: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  strong: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  glow: {
+    shadowColor: "#39FF14",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
 };
 
 export const radius = {
