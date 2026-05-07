@@ -23,9 +23,12 @@ import {
 import { detectSeason } from "../../src/utils/logic";
 
 const MENU = [
-  { key: "sourcing", path: "/sourcing", title: "Sourcing IA", desc: "Prix max · analyse marché · verdict instantané", icon: "flash-outline" as const, color: colors.good },
+  { key: "sourcing", path: "/sourcing", title: "Sourcing", desc: "Prix max · analyse marché · verdict instantané", icon: "flash-outline" as const, color: colors.good },
+  { key: "niche-scanner", path: "/niche-scanner", title: "Scanner de niches", desc: "Trouve les sous-cotés à revendre", icon: "search-outline" as const, color: colors.good },
+  { key: "competitors", path: "/competitors", title: "Concurrents", desc: "Surveille les autres vendeurs Vinted", icon: "eye-outline" as const, color: colors.info },
+  { key: "fiscal", path: "/fiscal", title: "Simulateur fiscal", desc: "Cotisations · IR · net réel auto-entrepreneur", icon: "calculator-outline" as const, color: colors.warning },
   { key: "niches", path: "/niches", title: "Niches", desc: "Marques performantes à surveiller", icon: "layers-outline" as const, color: colors.info },
-  { key: "clients", path: "/clients", title: "Clients", desc: "CRM · relances · négociations", icon: "people-outline" as const, color: colors.warning },
+  { key: "clients", path: "/clients", title: "Clients & templates", desc: "CRM · relances · messages pré-rédigés", icon: "people-outline" as const, color: colors.warning },
   { key: "retours", path: "/retours", title: "Retours", desc: "Suivi remboursements · pénalités marques", icon: "arrow-undo-outline" as const, color: colors.urgent },
 ];
 

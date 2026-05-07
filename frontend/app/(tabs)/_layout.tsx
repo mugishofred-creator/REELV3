@@ -38,7 +38,7 @@ export default function TabsLayout() {
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "grid" : "grid-outline"} color={color} size={20} />
+              <Ionicons name={focused ? "grid" : "grid-outline"} color={color} size={18} />
             </View>
           ),
           tabBarButtonTestID: "tab-dashboard",
@@ -50,7 +50,7 @@ export default function TabsLayout() {
           title: "Stock",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "shirt" : "shirt-outline"} color={color} size={20} />
+              <Ionicons name={focused ? "shirt" : "shirt-outline"} color={color} size={18} />
             </View>
           ),
           tabBarButtonTestID: "tab-stock",
@@ -62,7 +62,7 @@ export default function TabsLayout() {
           title: "Ventes",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name="trending-up" color={color} size={20} />
+              <Ionicons name="trending-up" color={color} size={18} />
             </View>
           ),
           tabBarButtonTestID: "tab-ventes",
@@ -74,10 +74,22 @@ export default function TabsLayout() {
           title: "Action",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "flash" : "flash-outline"} color={color} size={20} />
+              <Ionicons name={focused ? "flash" : "flash-outline"} color={color} size={18} />
             </View>
           ),
           tabBarButtonTestID: "tab-action",
+        }}
+      />
+      <Tabs.Screen
+        name="sniper"
+        options={{
+          title: "Sniper",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? "locate" : "locate-outline"} color={color} size={18} />
+            </View>
+          ),
+          tabBarButtonTestID: "tab-sniper",
         }}
       />
       <Tabs.Screen
@@ -86,7 +98,7 @@ export default function TabsLayout() {
           title: "Plus",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "apps" : "apps-outline"} color={color} size={20} />
+              <Ionicons name={focused ? "apps" : "apps-outline"} color={color} size={18} />
             </View>
           ),
           tabBarButtonTestID: "tab-plus",
@@ -102,7 +114,7 @@ const styles = StyleSheet.create({
     bottom: Platform.select({ ios: 28, default: 20 }),
     left: 16,
     right: 16,
-    height: Platform.select({ ios: 68, default: 64 }),
+    height: Platform.select({ ios: 68, default: 60 }),
     borderRadius: 28,
     borderTopWidth: 1,
     borderTopColor: colors.tabBarBorder,
@@ -122,21 +134,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tabBar,
   },
   label: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "700",
-    letterSpacing: 0.5,
-    marginTop: 2,
+    letterSpacing: 0.3,
+    marginTop: 1,
   },
   tabItem: {
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   iconWrap: {
-    width: 36,
-    height: 30,
+    width: 32,
+    height: 26,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 10,
+    borderRadius: 8,
   },
   iconWrapActive: {
     backgroundColor: colors.goodGlow,

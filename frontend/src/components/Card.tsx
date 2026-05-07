@@ -2,6 +2,13 @@ import React from "react";
 import { View, Text, StyleSheet, ViewStyle } from "react-native";
 import { colors, radius, spacing, shadow } from "../theme/colors";
 
+const ACCENT_COLORS: Record<string, string> = {
+  good: colors.good,
+  urgent: colors.urgent,
+  warning: colors.warning,
+  info: colors.info,
+};
+
 export function Card({
   children,
   style,
@@ -13,17 +20,12 @@ export function Card({
   testID?: string;
   accent?: "good" | "urgent" | "warning" | "info";
 }) {
-  const accentColor = accent === "good" ? colors.good
-    : accent === "urgent" ? colors.urgent
-    : accent === "warning" ? colors.warning
-    : accent === "info" ? colors.info
-    : null;
-
+  const accentColor = accent ? ACCENT_COLORS[accent] : undefined;
   return (
     <View
       style={[
         styles.card,
-        accentColor && { borderLeftColor: accentColor, borderLeftWidth: 3 },
+        accentColor ? { borderLeftWidth: 3, borderLeftColor: accentColor } : undefined,
         style,
       ]}
       testID={testID}

@@ -42,24 +42,6 @@ export const colors = {
   tabBarBorder: "rgba(255,255,255,0.09)",
 };
 
-export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 28,
-  pill: 999,
-};
-
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  xxl: 32,
-};
-
 export const shadow = {
   card: {
     shadowColor: "#000",
@@ -82,4 +64,22 @@ export const shadow = {
     shadowRadius: 12,
     elevation: 8,
   },
+};
+
+export const radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 28,
+  pill: 999,
+};
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
 };
