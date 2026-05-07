@@ -124,9 +124,10 @@ export async function directFetchUserItems(userId: string): Promise<DirectVinted
   let page = 1;
 
   while (page <= 5) {
-    const data = await vintedGet(`/users/${userId}/items`, {
+    const data = await vintedGet("/catalog/items", {
+      seller_id: userId,
       page,
-      per_page: 100,
+      per_page: 96,
       order: "newest_first",
     }) as { items?: unknown[]; pagination?: { total_pages?: number } };
 
