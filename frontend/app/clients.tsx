@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Clipboard } from "react-native";
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Share } from "react-native";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Input } from "../src/components/Input";
 import { Button } from "../src/components/Button";
@@ -41,11 +41,11 @@ export default function ClientsScreen() {
     const filled = fillTemplate(tpl, {
       pseudo: client.pseudo,
       produit: client.product,
-      prix: "",
-      contre: "",
-      offre: "",
+      prix: "XX",
+      contre: "XX",
+      offre: "XX",
     });
-    Clipboard.setString(filled);
+    Share.share({ message: filled }).catch(() => null);
     setCopied(tplId);
     setTimeout(() => setCopied(null), 2000);
   };

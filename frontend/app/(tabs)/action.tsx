@@ -256,15 +256,13 @@ export default function ActionScreen() {
               ))}
             </>
           )}
-        </>
-      )}
 
           {/* ── BOOSTER ── */}
           {toBoost.length > 0 && (
             <>
               <SectionTitle
                 title="À booster"
-                subtitle={`${toBoost.length} article${toBoost.length > 1 ? "s" : ""} — peu de vues, boost recommandé${bestHourLabel ? ` · Meilleure heure : ${bestHourLabel}` : ""}`}
+                subtitle={`${toBoost.length} article${toBoost.length > 1 ? "s" : ""} — peu de vues${bestHourLabel ? ` · Booste à ${bestHourLabel}` : ""}`}
               />
               {toBoost.map((i) => (
                 <Card key={i.id} style={styles.card} testID={`action-boost-${i.id}`}>
@@ -277,7 +275,7 @@ export default function ActionScreen() {
                     <Badge label="BOOSTER" tone="info" />
                   </View>
                   {bestHourLabel && (
-                    <Text style={styles.hint}>⚡ Booste entre {bestHourLabel} pour max visibilité</Text>
+                    <Text style={styles.hint}>⚡ Meilleure heure : {bestHourLabel}</Text>
                   )}
                   <Button
                     label="Marquer comme boosté"
@@ -289,6 +287,8 @@ export default function ActionScreen() {
               ))}
             </>
           )}
+        </>
+      )}
 
       <View style={{ height: 40 }} />
     </ScrollView>
