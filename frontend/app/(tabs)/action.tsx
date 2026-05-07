@@ -246,7 +246,7 @@ export default function ActionScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  container: { paddingHorizontal: 16, paddingBottom: 100 },
+  container: { paddingHorizontal: 16, paddingBottom: 130 },
   progressCard: { marginBottom: 16 },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   progressTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: "900" },

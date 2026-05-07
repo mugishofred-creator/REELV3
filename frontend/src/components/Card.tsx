@@ -1,18 +1,33 @@
 import React from "react";
 import { View, Text, StyleSheet, ViewStyle } from "react-native";
-import { colors, radius, spacing } from "../theme/colors";
+import { colors, radius, spacing, shadow } from "../theme/colors";
 
 export function Card({
   children,
   style,
   testID,
+  accent,
 }: {
   children: React.ReactNode;
   style?: ViewStyle | ViewStyle[];
   testID?: string;
+  accent?: "good" | "urgent" | "warning" | "info";
 }) {
+  const accentColor = accent === "good" ? colors.good
+    : accent === "urgent" ? colors.urgent
+    : accent === "warning" ? colors.warning
+    : accent === "info" ? colors.info
+    : null;
+
   return (
-    <View style={[styles.card, style]} testID={testID}>
+    <View
+      style={[
+        styles.card,
+        accentColor && { borderLeftColor: accentColor, borderLeftWidth: 3 },
+        style,
+      ]}
+      testID={testID}
+    >
       {children}
     </View>
   );
@@ -42,23 +57,26 @@ export function Divider() {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.border,
     padding: spacing.lg,
+    marginBottom: 10,
+    ...shadow.card,
   },
-  section: { marginBottom: spacing.md, marginTop: spacing.lg },
+  section: { marginBottom: 10, marginTop: 20 },
   sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 2,
+    letterSpacing: 2.5,
     textTransform: "uppercase",
   },
   sectionSub: {
     color: colors.textMuted,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: "500",
   },
   divider: {
     height: 1,

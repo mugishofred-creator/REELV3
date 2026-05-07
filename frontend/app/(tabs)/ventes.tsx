@@ -281,7 +281,7 @@ function MonthStat({ label, value, tone }: { label: string; value: string; tone?
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  container: { paddingHorizontal: 16, paddingBottom: 100 },
+  container: { paddingHorizontal: 16, paddingBottom: 130 },
   grid: { flexDirection: "row", gap: 10, marginBottom: 10 },
   empty: { color: colors.textMuted, textAlign: "center" },
 

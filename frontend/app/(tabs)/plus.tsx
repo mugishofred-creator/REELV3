@@ -595,7 +595,7 @@ const lcStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  container: { paddingHorizontal: 16, paddingBottom: 100 },
+  container: { paddingHorizontal: 16, paddingBottom: 130 },
   menuItem: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 10 },
   menuIcon: { width: 44, height: 44, borderRadius: 13, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   menuTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: "900", letterSpacing: -0.3 },

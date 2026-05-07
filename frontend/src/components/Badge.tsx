@@ -36,14 +36,14 @@ const styles = StyleSheet.create({
   base: {
     alignSelf: "flex-start",
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: radius.pill,
     borderWidth: 1,
   },
   text: {
     fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.2,
+    fontWeight: "900",
+    letterSpacing: 1,
     textTransform: "uppercase",
   },
 });

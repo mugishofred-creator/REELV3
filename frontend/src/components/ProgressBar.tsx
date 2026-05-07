@@ -1,42 +1,57 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, radius } from "../theme/colors";
+import { colors } from "../theme/colors";
 
 export function ProgressBar({
   progress,
-  color = colors.good,
-  trackColor,
+  color,
   label,
   valueLabel,
   height = 6,
 }: {
   progress: number;
-  color?: string;
-  trackColor?: string;
+  color: string;
   label?: string;
   valueLabel?: string;
   height?: number;
 }) {
-  const clamped = Math.min(1, Math.max(0, progress));
+  const clamped = Math.max(0, Math.min(1, progress));
   return (
     <View>
-      {(label || valueLabel) ? (
+      {(label || valueLabel) && (
         <View style={styles.header}>
-          {label ? <Text style={styles.label}>{label}</Text> : null}
-          {valueLabel ? <Text style={[styles.val, { color }]}>{valueLabel}</Text> : null}
+          {label && <Text style={styles.label}>{label}</Text>}
+          {valueLabel && <Text style={[styles.value, { color }]}>{valueLabel}</Text>}
         </View>
-      ) : null}
-      <View style={[styles.track, { height, backgroundColor: trackColor ?? colors.surfaceElevated }]}>
-        <View style={[styles.fill, { width: `${clamped * 100}%`, backgroundColor: color, height }]} />
+      )}
+      <View style={[styles.track, { height, borderRadius: height / 2 }]}>
+        <View
+          style={[
+            styles.fill,
+            {
+              width: `${clamped * 100}%`,
+              height,
+              borderRadius: height / 2,
+              backgroundColor: color,
+              shadowColor: color,
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.6,
+              shadowRadius: 5,
+            },
+          ]}
+        />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  label: { color: colors.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
-  val: { fontSize: 12, fontWeight: "800" },
-  track: { borderRadius: radius.pill, overflow: "hidden" },
-  fill: { borderRadius: radius.pill },
+  header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  label: { color: colors.textMuted, fontSize: 11, fontWeight: "600" },
+  value: { fontSize: 11, fontWeight: "800" },
+  track: {
+    backgroundColor: colors.surfaceHigh,
+    overflow: "hidden",
+  },
+  fill: {},
 });

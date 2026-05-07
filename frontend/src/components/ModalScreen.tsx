@@ -1,11 +1,7 @@
 import React from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, StyleSheet, TouchableOpacity,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,19 +25,22 @@ export function ModalScreen({
       style={{ flex: 1, backgroundColor: colors.bg }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.kickerRow}>
+            <View style={styles.kickerDot} />
+            <Text style={styles.kicker}>VINTED MANAGER</Text>
+          </View>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
+        </View>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.close}
           testID="modal-close"
         >
-          <Ionicons name="close" size={22} color={colors.textPrimary} />
+          <Ionicons name="close" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>VINTED MANAGER</Text>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
-        </View>
       </View>
       {children}
     </KeyboardAvoidingView>
@@ -58,15 +57,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
   },
-  close: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+  kickerRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+  kickerDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.good,
+    shadowColor: colors.good,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
   },
   kicker: {
     color: colors.good,
@@ -76,10 +81,21 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "900",
-    letterSpacing: -0.8,
-    marginTop: 2,
+    letterSpacing: -1,
+    lineHeight: 32,
   },
-  sub: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
+  sub: { color: colors.textMuted, fontSize: 12, marginTop: 4, fontWeight: "500" },
+  close: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
 });

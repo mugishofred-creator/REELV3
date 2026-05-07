@@ -440,7 +440,7 @@ const bStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  container: { paddingHorizontal: 16, paddingBottom: 100 },
+  container: { paddingHorizontal: 16, paddingBottom: 130 },
 
   warningCard: {
     marginBottom: 14,
@@ -458,12 +458,21 @@ const styles = StyleSheet.create({
 
   healthCard: {
     marginBottom: 14,
-    borderColor: colors.borderSoft,
+    borderColor: colors.borderHighlight,
   },
-  healthRow: { flexDirection: "row", alignItems: "center", gap: 16 },
-  scoreBox: { alignItems: "center" },
-  scoreBig: { fontSize: 48, fontWeight: "900", letterSpacing: -2, lineHeight: 52 },
-  scoreOver: { color: colors.textMuted, fontSize: 12, fontWeight: "700", marginTop: -4 },
+  healthRow: { flexDirection: "row", alignItems: "center", gap: 18 },
+  scoreBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 2,
+    borderColor: colors.borderHighlight,
+    backgroundColor: colors.surfaceElevated,
+  },
+  scoreBig: { fontSize: 36, fontWeight: "900", letterSpacing: -1.5, lineHeight: 40 },
+  scoreOver: { color: colors.textMuted, fontSize: 10, fontWeight: "700" },
   healthRight: { flex: 1, gap: 6 },
   healthLabel: {
     color: colors.textMuted,
@@ -472,8 +481,8 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: "uppercase",
   },
-  healthVerdict: { fontSize: 20, fontWeight: "900", letterSpacing: -0.5 },
-  breakdownRow: { flexDirection: "row", gap: 6, marginTop: 4 },
+  healthVerdict: { fontSize: 22, fontWeight: "900", letterSpacing: -0.5 },
+  breakdownRow: { flexDirection: "row", gap: 6, marginTop: 6 },
 
   grid: { flexDirection: "row", gap: 10, marginBottom: 10 },
 
@@ -481,13 +490,13 @@ const styles = StyleSheet.create({
   projCol: { flex: 1, alignItems: "center" },
   projDivider: { width: 1, height: 36, backgroundColor: colors.borderSoft },
   projLabel: { color: colors.textMuted, fontSize: 9, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 },
-  projValue: { fontSize: 20, fontWeight: "900", letterSpacing: -0.5 },
+  projValue: { fontSize: 22, fontWeight: "900", letterSpacing: -0.5 },
   separator: { height: 1, backgroundColor: colors.borderSoft, marginBottom: 14 },
   projEstimate: {
     marginTop: 12,
-    padding: 10,
+    padding: 12,
     backgroundColor: colors.goodBg,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.goodBorder,
   },
@@ -496,15 +505,15 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 12,
   },
   actionBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderSoft },
-  urgencyBar: { width: 3, height: 36, borderRadius: 2 },
+  urgencyBar: { width: 3, height: 38, borderRadius: 2 },
   actionName: { color: colors.textPrimary, fontSize: 14, fontWeight: "800" },
   actionMeta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
 
   nicheCard: { flex: 1 },
-  nicheBadge: { color: colors.good, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 6 },
-  nicheBrand: { fontSize: 16, fontWeight: "900", letterSpacing: -0.3 },
+  nicheBadge: { color: colors.good, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 8 },
+  nicheBrand: { fontSize: 17, fontWeight: "900", letterSpacing: -0.3 },
   nicheMeta: { color: colors.textMuted, fontSize: 11, marginTop: 4 },
 });

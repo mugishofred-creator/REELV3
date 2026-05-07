@@ -309,7 +309,7 @@ const ppStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  container: { paddingHorizontal: 16, paddingBottom: 100 },
+  container: { paddingHorizontal: 16, paddingBottom: 130 },
   addBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: colors.good, alignItems: "center", justifyContent: "center",

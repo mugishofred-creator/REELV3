@@ -14,9 +14,12 @@ export function ScreenHeader({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + 12 }]}>
+    <View style={[styles.wrap, { paddingTop: insets.top + 16 }]}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.kicker}>VINTED MANAGER</Text>
+        <View style={styles.kickerRow}>
+          <View style={styles.kickerDot} />
+          <Text style={styles.kicker}>VINTED MANAGER</Text>
+        </View>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
       </View>
@@ -28,9 +31,25 @@ export function ScreenHeader({
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 20,
     flexDirection: "row",
     alignItems: "flex-end",
+  },
+  kickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+  kickerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.good,
+    shadowColor: colors.good,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
   },
   kicker: {
     color: colors.good,
@@ -40,10 +59,15 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: "900",
-    letterSpacing: -1,
-    marginTop: 4,
+    letterSpacing: -1.2,
+    lineHeight: 38,
   },
-  sub: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
+  sub: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginTop: 5,
+    fontWeight: "500",
+  },
 });
