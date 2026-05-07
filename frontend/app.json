@@ -25,7 +25,9 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Ajoute des photos à tes articles",
         "NSPhotoLibraryAddUsageDescription": "Enregistre des photos d'articles",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -37,10 +39,11 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "READ_MEDIA_IMAGES",
-        "READ_EXTERNAL_STORAGE",
-        "POST_NOTIFICATIONS",
-        "SCHEDULE_EXACT_ALARM"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -74,6 +77,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "90d8b3a6-a124-4f62-831a-9559c1cda77e"
+      }
     }
   }
 }
