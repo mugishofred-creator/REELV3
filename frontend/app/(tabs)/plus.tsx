@@ -23,22 +23,25 @@ import {
   type VintedItem,
 } from "../../src/utils/vintedApi";
 import { detectSeason } from "../../src/utils/logic";
-import { clearVintedAuth, getSavedLogin, getVintedToken } from "../../src/utils/vintedAuth";
+import { clearVintedAuth, getSavedLogin, getVintedToken, saveVintedSession, isAuthenticated } from "../../src/utils/vintedAuth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ── Vinted WebView Login ─────────────────────────────────────────────────────
 
 const INJECT_JS = `
 (function() {
-  fetch('/api/v2/users/current', {headers: {Accept: 'application/json'}})
+  var cookie = document.cookie || '';
+  fetch('/api/v2/users/current', {credentials: 'include', headers: {Accept: 'application/json'}})
     .then(r => r.json())
     .then(function(d) {
-      var u = d && d.user;
-      var token = (u && u.access_token) || '';
-      var login = (u && (u.email || u.login)) || '';
-      if (token) window.ReactNativeWebView.postMessage(JSON.stringify({token: token, login: login}));
+      var u = d && (d.user || d);
+      var token = (u && (u.access_token || u.token || u.api_token)) || '';
+      var login = (u && (u.email || u.login || u.username)) || '';
+      window.ReactNativeWebView.postMessage(JSON.stringify({token: token, login: login, cookie: cookie}));
     })
-    .catch(function(){});
+    .catch(function() {
+      window.ReactNativeWebView.postMessage(JSON.stringify({token: '', login: '', cookie: cookie}));
+    });
 })();
 true;
 `;
@@ -50,12 +53,13 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
 
   const onMessage = async (e: WebViewMessageEvent) => {
     try {
-      const { token, login } = JSON.parse(e.nativeEvent.data) as { token: string; login: string };
-      if (token) {
-        await AsyncStorage.setItem("vm:vintedToken", token);
-        await AsyncStorage.setItem("vm:vintedLogin", login || "compte Vinted");
-        onSuccess(login || "compte Vinted");
-      }
+      const { token, login, cookie } = JSON.parse(e.nativeEvent.data) as { token: string; login: string; cookie: string };
+      await saveVintedSession({
+        token: token || undefined,
+        cookie: cookie || undefined,
+        login: login || "compte Vinted",
+      });
+      onSuccess(login || "compte Vinted");
     } catch { /* ignore */ }
   };
 
@@ -63,16 +67,6 @@ function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => 
     if (webRef.current) {
       webRef.current.injectJavaScript(INJECT_JS);
     }
-    // Fallback: si le token n'arrive pas en 3s, on confirme sans token
-    setTimeout(async () => {
-      const token = await AsyncStorage.getItem("vm:vintedToken");
-      if (!token) {
-        // Sauvegarde une valeur générique pour marquer comme connecté
-        await AsyncStorage.setItem("vm:vintedToken", "session");
-        await AsyncStorage.setItem("vm:vintedLogin", "compte Vinted");
-        onSuccess("compte Vinted");
-      }
-    }, 3000);
   };
 
   const onNavChange = (state: { url: string }) => {
@@ -173,7 +167,7 @@ export default function PlusScreen() {
     getSavedVintedUserId().then(setVintedInput);
     getBackendUrl().then(setBackendUrl);
     getSavedLogin().then((l) => { if (l) setLoggedInAs(l); });
-    getVintedToken().then((t) => { if (t) setAuthStatus("ok"); });
+    isAuthenticated().then((ok) => { if (ok) setAuthStatus("ok"); });
   }, []);
 
   const handleVintedLogout = async () => {
