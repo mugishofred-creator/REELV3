@@ -52,8 +52,9 @@ export default function CompetitorsScreen() {
     try {
       const updated = await refreshCompetitor(compId);
       setCompetitors(updated);
-    } catch {
-      Alert.alert("Erreur", "Impossible de récupérer les articles.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert("Erreur", `Impossible de récupérer les articles.\n\n${msg}`);
     } finally {
       setRefreshingId(null);
     }
