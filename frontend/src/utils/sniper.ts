@@ -22,6 +22,7 @@ export type SniperHit = {
   brand: string;
   photo: string;
   detectedAt: string;
+  vintedUrl: string;
 };
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
@@ -168,6 +169,7 @@ export async function runSniperCheck(rules: SniperRule[]): Promise<SniperHit[]> 
           const photos =
             (raw.photos as { url?: string; full_size_url?: string }[] | undefined) ?? [];
           const photo = photos[0]?.url ?? photos[0]?.full_size_url ?? "";
+          const vintedUrl = `https://www.vinted.fr/items/${id}`;
 
           newHits.push({
             id,
@@ -178,6 +180,7 @@ export async function runSniperCheck(rules: SniperRule[]): Promise<SniperHit[]> 
             brand: String(raw.brand_title ?? ""),
             photo,
             detectedAt: new Date().toISOString(),
+            vintedUrl,
           });
 
           // increment hitsCount on the rule
@@ -214,6 +217,7 @@ async function sendSniperNotifications(hits: SniperHit[]): Promise<void> {
         // @ts-ignore android-specific
         priority: "max",
         vibrate: [0, 250, 250, 250],
+        data: { url: hit.vintedUrl },
       },
       trigger: null,
     });

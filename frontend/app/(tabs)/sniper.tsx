@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ScrollView, View, Text, StyleSheet, TextInput,
   TouchableOpacity, AppState, AppStateStatus, Image,
-  ActivityIndicator,
+  ActivityIndicator, Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
@@ -67,7 +67,7 @@ export default function SniperScreen() {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appState = useRef(AppState.currentState);
 
-  // ── Load data ──────────────────────────────────────────────────────────────
+  // ── Load data + notification tap handler ──────────────────────────────────
 
   useEffect(() => {
     (async () => {
@@ -77,6 +77,13 @@ export default function SniperScreen() {
       await registerBgTask();
       await Notifications.requestPermissionsAsync();
     })();
+
+    // Quand l'utilisateur tape la notification → ouvre directement l'app Vinted
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const url = response.notification.request.content.data?.url as string | undefined;
+      if (url) Linking.openURL(url).catch(() => null);
+    });
+    return () => sub.remove();
   }, []);
 
   // ── Foreground polling ─────────────────────────────────────────────────────
@@ -359,27 +366,34 @@ export default function SniperScreen() {
             </TouchableOpacity>
           </View>
           {hits.map((hit) => (
-            <Card key={`${hit.id}-${hit.detectedAt}`} style={styles.hitCard} accent="good">
-              <View style={styles.hitRow}>
-                {hit.photo ? (
-                  <Image source={{ uri: hit.photo }} style={styles.hitPhoto} />
-                ) : (
-                  <View style={[styles.hitPhoto, styles.hitPhotoPlaceholder]}>
-                    <Ionicons name="shirt-outline" size={20} color={colors.textMuted} />
+            <TouchableOpacity
+              key={`${hit.id}-${hit.detectedAt}`}
+              onPress={() => Linking.openURL(hit.vintedUrl).catch(() => null)}
+              activeOpacity={0.75}
+            >
+              <Card style={styles.hitCard} accent="good">
+                <View style={styles.hitRow}>
+                  {hit.photo ? (
+                    <Image source={{ uri: hit.photo }} style={styles.hitPhoto} />
+                  ) : (
+                    <View style={[styles.hitPhoto, styles.hitPhotoPlaceholder]}>
+                      <Ionicons name="shirt-outline" size={20} color={colors.textMuted} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.hitTitle} numberOfLines={2}>{hit.title}</Text>
+                    {hit.brand ? <Text style={styles.hitBrand}>{hit.brand}</Text> : null}
+                    <Text style={styles.hitMeta}>
+                      Règle: {hit.ruleName} · {new Date(hit.detectedAt).toLocaleTimeString("fr-FR")}
+                    </Text>
                   </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.hitTitle} numberOfLines={2}>{hit.title}</Text>
-                  {hit.brand ? <Text style={styles.hitBrand}>{hit.brand}</Text> : null}
-                  <Text style={styles.hitMeta}>
-                    Règle: {hit.ruleName} · {new Date(hit.detectedAt).toLocaleTimeString("fr-FR")}
-                  </Text>
+                  <View style={styles.hitPriceWrap}>
+                    <Text style={styles.hitPrice}>{hit.price}€</Text>
+                    <Text style={styles.hitOpen}>OUVRIR →</Text>
+                  </View>
                 </View>
-                <View style={styles.hitPriceWrap}>
-                  <Text style={styles.hitPrice}>{hit.price}€</Text>
-                </View>
-              </View>
-            </Card>
+              </Card>
+            </TouchableOpacity>
           ))}
         </>
       )}
@@ -547,6 +561,7 @@ const styles = StyleSheet.create({
     borderColor: colors.good,
   },
   hitPrice: { color: colors.good, fontSize: 16, fontWeight: "900" },
+  hitOpen: { color: colors.good, fontSize: 9, fontWeight: "900", letterSpacing: 0.5, marginTop: 3, textAlign: "center" },
 
   tipsCard: { marginTop: 8, marginBottom: 12 },
   tipRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 5 },
