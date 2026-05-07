@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, TextInput,
-  ActivityIndicator,
+  ActivityIndicator, Modal,
 } from "react-native";
+import { WebView } from "react-native-webview";
+import type { WebViewMessageEvent } from "react-native-webview";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "../../src/components/ScreenHeader";
@@ -21,6 +23,92 @@ import {
   type VintedItem,
 } from "../../src/utils/vintedApi";
 import { detectSeason } from "../../src/utils/logic";
+import { clearVintedAuth, getSavedLogin, getVintedToken } from "../../src/utils/vintedAuth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// ── Vinted WebView Login ─────────────────────────────────────────────────────
+
+const INJECT_JS = `
+(function() {
+  fetch('/api/v2/users/current', {headers: {Accept: 'application/json'}})
+    .then(r => r.json())
+    .then(function(d) {
+      var u = d && d.user;
+      var token = (u && u.access_token) || '';
+      var login = (u && (u.email || u.login)) || '';
+      if (token) window.ReactNativeWebView.postMessage(JSON.stringify({token: token, login: login}));
+    })
+    .catch(function(){});
+})();
+true;
+`;
+
+function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => void; onClose: () => void }) {
+  const webRef = useRef<WebView>(null);
+  const [loading, setLoading] = useState(true);
+
+  const onMessage = async (e: WebViewMessageEvent) => {
+    try {
+      const { token, login } = JSON.parse(e.nativeEvent.data) as { token: string; login: string };
+      if (token) {
+        await AsyncStorage.setItem("vm:vintedToken", token);
+        await AsyncStorage.setItem("vm:vintedLogin", login || "compte Vinted");
+        onSuccess(login || "compte Vinted");
+      }
+    } catch { /* ignore */ }
+  };
+
+  const onNavChange = (state: { url: string }) => {
+    const url = state.url || "";
+    const loggedIn = url.includes("vinted.fr") &&
+      !url.includes("/auth/") &&
+      !url.includes("/login") &&
+      !url.includes("/sign_in") &&
+      !url.includes("/oauth");
+    if (loggedIn && webRef.current) {
+      webRef.current.injectJavaScript(INJECT_JS);
+    }
+  };
+
+  return (
+    <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <View style={wStyles.bar}>
+          <Text style={wStyles.title}>Connexion Vinted</Text>
+          <TouchableOpacity onPress={onClose} style={wStyles.closeBtn}>
+            <Text style={wStyles.closeText}>Fermer</Text>
+          </TouchableOpacity>
+        </View>
+        {loading && (
+          <View style={wStyles.loader}>
+            <ActivityIndicator size="large" color={colors.good} />
+            <Text style={wStyles.loaderText}>Chargement…</Text>
+          </View>
+        )}
+        <WebView
+          ref={webRef}
+          source={{ uri: "https://www.vinted.fr/auth/sign_in" }}
+          onLoadEnd={() => setLoading(false)}
+          onNavigationStateChange={onNavChange}
+          onMessage={onMessage}
+          javaScriptEnabled
+          thirdPartyCookiesEnabled
+          sharedCookiesEnabled
+          style={{ flex: 1 }}
+        />
+      </View>
+    </Modal>
+  );
+}
+
+const wStyles = StyleSheet.create({
+  bar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, paddingTop: 52 },
+  title: { color: colors.textPrimary, fontSize: 16, fontWeight: "700" },
+  closeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.surfaceElevated },
+  closeText: { color: colors.textSecondary, fontSize: 14, fontWeight: "600" },
+  loader: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, zIndex: 10 },
+  loaderText: { color: colors.textMuted, fontSize: 13, marginTop: 10 },
+});
 
 const MENU = [
   { key: "sourcing", path: "/sourcing", title: "Sourcing", desc: "Prix max · analyse marché · verdict instantané", icon: "flash-outline" as const, color: colors.good },
@@ -52,10 +140,30 @@ export default function PlusScreen() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND);
   const [urlSaved, setUrlSaved] = useState(false);
 
+  // ── Vinted auth ──
+  const [authStatus, setAuthStatus] = useState<"none" | "ok">("none");
+  const [loggedInAs, setLoggedInAs] = useState("");
+  const [showLoginWeb, setShowLoginWeb] = useState(false);
+
   useEffect(() => {
     getSavedVintedUserId().then(setVintedInput);
     getBackendUrl().then(setBackendUrl);
+    getSavedLogin().then((l) => { if (l) setLoggedInAs(l); });
+    getVintedToken().then((t) => { if (t) setAuthStatus("ok"); });
   }, []);
+
+  const handleVintedLogout = async () => {
+    await clearVintedAuth();
+    setAuthStatus("none");
+    setLoggedInAs("");
+  };
+
+  const handleAuthSuccess = (login: string) => {
+    setAuthStatus("ok");
+    setLoggedInAs(login);
+    setShowLoginWeb(false);
+    Alert.alert("✓ Connecté !", "Tu peux maintenant importer ton catalogue et utiliser le sniper.");
+  };
 
   const thisMonth = currentMonthStats(ventes);
   const thisWeek = lastSevenDaysStats(ventes);
@@ -191,6 +299,31 @@ export default function PlusScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.container} testID="plus-scroll">
       <ScreenHeader title="Plus" subtitle="Outils & objectifs" />
+
+      {/* ── CONNEXION VINTED ── */}
+      <SectionTitle title="Connexion Vinted" subtitle="Obligatoire pour le sniper, l'import et les concurrents" />
+      <Card>
+        {authStatus === "ok" ? (
+          <View style={styles.authRow}>
+            <View style={styles.authOkDot} />
+            <Text style={styles.authOkText}>Connecté{loggedInAs ? ` : ${loggedInAs}` : ""}</Text>
+            <TouchableOpacity onPress={handleVintedLogout} style={styles.authLogoutBtn}>
+              <Text style={styles.authLogoutText}>Déconnecter</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.authConnectBtn} onPress={() => setShowLoginWeb(true)}>
+            <Ionicons name="log-in-outline" size={18} color={colors.bg} />
+            <Text style={styles.syncBtnText}>Se connecter à Vinted</Text>
+          </TouchableOpacity>
+        )}
+      </Card>
+      {showLoginWeb && (
+        <VintedWebLogin
+          onSuccess={handleAuthSuccess}
+          onClose={() => setShowLoginWeb(false)}
+        />
+      )}
 
       {/* ── SYNCHRONISATION VINTED ── */}
       <SectionTitle title="Synchronisation Vinted" subtitle="Importe ton catalogue en un tap" />
@@ -666,4 +799,11 @@ const styles = StyleSheet.create({
   urlSaveBtn: { paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.info, borderRadius: 10, justifyContent: "center" },
   urlSaveBtnDone: { backgroundColor: colors.good },
   urlSaveBtnText: { color: colors.bg, fontWeight: "800", fontSize: 13 },
+  authRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  authOkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.good },
+  authOkText: { flex: 1, color: colors.textPrimary, fontSize: 13, fontWeight: "600" },
+  authLogoutBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: colors.urgent },
+  authLogoutText: { color: colors.urgent, fontSize: 12, fontWeight: "700" },
+  authConnectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.good, borderRadius: 12, paddingVertical: 12 },
+  syncBtnText: { color: colors.bg, fontWeight: "800", fontSize: 14 },
 });

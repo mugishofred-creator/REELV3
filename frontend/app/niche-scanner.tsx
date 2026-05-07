@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Card } from "../src/components/Card";
 import { colors, shadow } from "../src/theme/colors";
+import { getAuthHeaders } from "../src/utils/vintedAuth";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -24,12 +25,6 @@ type Deal = {
 // ── Vinted search ──────────────────────────────────────────────────────────────
 
 const VINTED_BASE = "https://www.vinted.fr/api/v2";
-const HEADERS: Record<string, string> = {
-  "User-Agent": "com.vinted.android/24.6.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014)",
-  Accept: "application/json",
-  "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-  "X-Device-Id": "android",
-};
 
 function parsePrice(raw: unknown): number {
   if (raw && typeof raw === "object" && "amount" in raw)
@@ -47,11 +42,12 @@ function median(arr: number[]): number {
 async function searchVinted(query: string, maxPrice?: number, page = 1): Promise<unknown[]> {
   let qs = `search_text=${encodeURIComponent(query)}&per_page=96&page=${page}&order=price_low_to_high`;
   if (maxPrice) qs += `&price_to=${maxPrice}`;
+  const headers = await getAuthHeaders();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
     const res = await fetch(`${VINTED_BASE}/catalog/items?${qs}`, {
-      headers: HEADERS,
+      headers,
       signal: controller.signal,
     });
     clearTimeout(timer);

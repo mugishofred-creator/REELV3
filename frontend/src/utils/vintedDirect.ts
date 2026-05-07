@@ -1,21 +1,6 @@
-/**
- * Direct Vinted API calls from React Native (no backend needed).
- *
- * React Native's fetch() is a native HTTP client — not a browser.
- * Datadome's JS challenges never execute, so public Vinted endpoints
- * are reachable with a realistic Android User-Agent.
- */
+import { getAuthHeaders } from "./vintedAuth";
 
 const VINTED_BASE = "https://www.vinted.fr/api/v2";
-
-const ANDROID_HEADERS: Record<string, string> = {
-  "User-Agent":
-    "com.vinted.android/24.6.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014)",
-  Accept: "application/json, text/plain, */*",
-  "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-  "X-Device-Id": "android",
-  "X-Forwarded-For": "",
-};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,12 +46,13 @@ async function vintedGet(path: string, params: Record<string, string | number>):
   const qs = Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
   const url = `${VINTED_BASE}${path}?${qs}`;
 
+  const headers = await getAuthHeaders();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: ANDROID_HEADERS,
+      headers,
       signal: controller.signal,
     });
     clearTimeout(timer);

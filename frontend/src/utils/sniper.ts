@@ -111,14 +111,9 @@ export async function clearHits(): Promise<void> {
 // ── Vinted direct search (newest first, price capped) ─────────────────────────
 // Fastest strategy: fetch only 20 newest items, check price, skip seen IDs.
 
+import { getAuthHeaders } from "./vintedAuth";
+
 const VINTED_BASE = "https://www.vinted.fr/api/v2";
-const HEADERS: Record<string, string> = {
-  "User-Agent":
-    "com.vinted.android/24.6.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014)",
-  Accept: "application/json",
-  "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-  "X-Device-Id": "android",
-};
 
 function parsePrice(raw: unknown): number {
   if (raw && typeof raw === "object" && "amount" in raw) {
@@ -129,11 +124,12 @@ function parsePrice(raw: unknown): number {
 
 async function searchNewest(keywords: string, maxPrice: number): Promise<unknown[]> {
   const qs = `search_text=${encodeURIComponent(keywords)}&price_to=${maxPrice}&per_page=20&order=newest_first`;
+  const headers = await getAuthHeaders();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch(`${VINTED_BASE}/catalog/items?${qs}`, {
-      headers: HEADERS,
+      headers,
       signal: controller.signal,
     });
     clearTimeout(timer);
