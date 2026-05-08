@@ -1,17 +1,51 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   ScrollView, View, Text, StyleSheet, TouchableOpacity,
   TextInput, ActivityIndicator, Image, Alert,
 } from "react-native";
+import { WebView } from "react-native-webview";
+import type { WebViewMessageEvent } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Card } from "../src/components/Card";
 import { colors } from "../src/theme/colors";
 import { extractUserId } from "../src/utils/vintedApi";
+import type { DirectVintedItem } from "../src/utils/vintedDirect";
 import {
   Competitor,
   loadCompetitors, addCompetitor, removeCompetitor, refreshCompetitor,
 } from "../src/utils/competitors";
+
+// ── WebView-based authenticated fetcher ───────────────────────────────────────
+// React Native fetch() cannot bypass Vinted's CSRF protection.
+// A hidden WebView on vinted.fr makes same-origin fetch() calls instead.
+
+interface FetchCallback {
+  resolve: (items: DirectVintedItem[]) => void;
+  reject: (err: Error) => void;
+}
+
+function parseItemsFromWebView(raw: Record<string, unknown>[]): DirectVintedItem[] {
+  return raw.map((item) => {
+    const photos = (item.photos as Array<{ url?: string }> | undefined) ?? [];
+    const priceRaw = item.price as { amount?: string } | number | string | undefined;
+    const price =
+      priceRaw && typeof priceRaw === "object" && "amount" in priceRaw
+        ? parseFloat((priceRaw as { amount: string }).amount) || 0
+        : parseFloat(String(priceRaw ?? 0)) || 0;
+    return {
+      id: String(item.id ?? ""),
+      title: String(item.title ?? ""),
+      price,
+      brand: String(item.brand_title ?? ""),
+      category: String(item.category_title ?? ""),
+      photoUrl: photos[0]?.url ?? "",
+      status: String(item.status ?? ""),
+    };
+  });
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function CompetitorsScreen() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -21,8 +55,86 @@ export default function CompetitorsScreen() {
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  const webViewRef = useRef<WebView>(null);
+  const webViewReady = useRef(false);
+  const pendingFetch = useRef<FetchCallback | null>(null);
+
   useEffect(() => {
     loadCompetitors().then(setCompetitors);
+  }, []);
+
+  const onWebViewMessage = useCallback((e: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data) as {
+        ok: boolean;
+        items?: Record<string, unknown>[];
+        error?: string;
+      };
+      if (!pendingFetch.current) return;
+      if (msg.ok) {
+        pendingFetch.current.resolve(parseItemsFromWebView(msg.items ?? []));
+      } else {
+        pendingFetch.current.reject(new Error(msg.error ?? "Erreur inconnue"));
+      }
+      pendingFetch.current = null;
+    } catch { /* ignore malformed messages */ }
+  }, []);
+
+  const fetchItemsViaWebView = useCallback((userId: string): Promise<DirectVintedItem[]> => {
+    return new Promise((resolve, reject) => {
+      if (!webViewRef.current || !webViewReady.current) {
+        reject(new Error("Page Vinted en cours de chargement, réessayez dans quelques secondes."));
+        return;
+      }
+
+      let done = false;
+      const timer = setTimeout(() => {
+        if (!done) {
+          done = true;
+          pendingFetch.current = null;
+          reject(new Error("Timeout — vérifiez votre connexion."));
+        }
+      }, 30000);
+
+      pendingFetch.current = {
+        resolve: (items) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          resolve(items);
+        },
+        reject: (err) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          reject(err);
+        },
+      };
+
+      webViewRef.current.injectJavaScript(`
+        (async function() {
+          try {
+            var all = [];
+            for (var p = 1; p <= 5; p++) {
+              var r = await fetch(
+                '/api/v2/catalog/items?user_id=${userId}&page=' + p + '&per_page=96&order=newest_first',
+                { credentials: 'include', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }
+              );
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              var d = await r.json();
+              var items = d.items || [];
+              if (!items.length) break;
+              all = all.concat(items);
+              if (p >= ((d.pagination || {}).total_pages || 1)) break;
+            }
+            window.ReactNativeWebView.postMessage(JSON.stringify({ ok: true, items: all }));
+          } catch (e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ ok: false, error: e.message || String(e) }));
+          }
+        })();
+        true;
+      `);
+    });
   }, []);
 
   const handleAdd = async () => {
@@ -50,7 +162,7 @@ export default function CompetitorsScreen() {
   const handleRefresh = useCallback(async (compId: string) => {
     setRefreshingId(compId);
     try {
-      const updated = await refreshCompetitor(compId);
+      const updated = await refreshCompetitor(compId, fetchItemsViaWebView);
       setCompetitors(updated);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -58,7 +170,7 @@ export default function CompetitorsScreen() {
     } finally {
       setRefreshingId(null);
     }
-  }, []);
+  }, [fetchItemsViaWebView]);
 
   const handleDelete = (compId: string, name: string) => {
     Alert.alert("Supprimer", `Arrêter de surveiller ${name} ?`, [
@@ -75,6 +187,17 @@ export default function CompetitorsScreen() {
 
   return (
     <ModalScreen title="Concurrents" subtitle="Surveille les autres vendeurs">
+      {/* Hidden WebView — makes authenticated API calls via same-origin fetch */}
+      <WebView
+        ref={webViewRef}
+        source={{ uri: "https://www.vinted.fr" }}
+        onLoadEnd={() => { webViewReady.current = true; }}
+        onMessage={onWebViewMessage}
+        javaScriptEnabled
+        thirdPartyCookiesEnabled
+        style={styles.hiddenWebView}
+      />
+
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* ── Ajouter ── */}
@@ -232,6 +355,14 @@ export default function CompetitorsScreen() {
 }
 
 const styles = StyleSheet.create({
+  hiddenWebView: {
+    position: "absolute",
+    top: -2000,
+    left: -2000,
+    width: 1,
+    height: 1,
+  },
+
   content: { padding: 16, paddingBottom: 40 },
 
   addCard: { marginBottom: 16 },

@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { directFetchUserItems } from "./vintedDirect";
+import { directFetchUserItems, DirectVintedItem } from "./vintedDirect";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,13 +66,16 @@ export async function removeCompetitor(id: string): Promise<Competitor[]> {
 
 // ── Refresh (fetch latest items + compute diff) ───────────────────────────────
 
-export async function refreshCompetitor(id: string): Promise<Competitor[]> {
+export async function refreshCompetitor(
+  id: string,
+  fetchFn: (userId: string) => Promise<DirectVintedItem[]> = directFetchUserItems
+): Promise<Competitor[]> {
   const list = await loadCompetitors();
   const idx = list.findIndex((c) => c.id === id);
   if (idx === -1) return list;
 
   const comp = list[idx];
-  const fetched = await directFetchUserItems(comp.vintedId);
+  const fetched = await fetchFn(comp.vintedId);
 
   const prevIds = new Set(comp.currentItems.map((i) => i.id));
   const newIds = new Set(fetched.map((i) => i.id));
