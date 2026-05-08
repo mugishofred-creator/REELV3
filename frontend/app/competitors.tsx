@@ -223,13 +223,13 @@ export default function CompetitorsScreen() {
         ref={webViewRef}
         source={{ uri: "https://www.vinted.fr" }}
         onLoadEnd={() => {
-          // Small delay to ensure anonymous session cookies are set
           setTimeout(() => { webViewReady.current = true; }, 800);
         }}
         onMessage={onWebViewMessage}
         javaScriptEnabled
         thirdPartyCookiesEnabled
-        incognito
+        sharedCookiesEnabled
+        domStorageEnabled
         style={styles.hiddenWebView}
       />
 
