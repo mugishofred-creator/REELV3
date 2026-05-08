@@ -44,8 +44,8 @@ async function registerBgTask() {
   }
 }
 
-// ── Foreground poll interval (30s — anonyme, pas de risque de ban) ───────────
-const FOREGROUND_INTERVAL_MS = 30_000;
+// ── Foreground poll interval (15s — anonyme, comparable à vTools) ────────────
+const FOREGROUND_INTERVAL_MS = 15_000;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -63,6 +63,7 @@ export default function SniperScreen() {
   const [formName, setFormName] = useState("");
   const [formKeywords, setFormKeywords] = useState("");
   const [formMaxPrice, setFormMaxPrice] = useState("");
+  const [formAutocop, setFormAutocop] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -100,6 +101,14 @@ export default function SniperScreen() {
       const newHits = await runSniperCheck(currentRules);
       ok = true;
       if (newHits.length > 0) {
+        // AutoCop: open Vinted directly on first hit where rule has autocop enabled
+        for (const hit of newHits) {
+          const rule = currentRules.find((r) => r.id === hit.ruleId);
+          if (rule?.autocop) {
+            Linking.openURL(hit.vintedUrl).catch(() => null);
+            break;
+          }
+        }
         setHits((prev) => [...newHits, ...prev].slice(0, 100));
       }
       const updatedRules = await loadRules();
@@ -168,11 +177,13 @@ export default function SniperScreen() {
       keywords: formKeywords.trim(),
       maxPrice,
       enabled: true,
+      autocop: formAutocop,
     });
     setRules(updated);
     setFormName("");
     setFormKeywords("");
     setFormMaxPrice("");
+    setFormAutocop(false);
     setShowForm(false);
 
     if (active) startPolling(updated);
@@ -310,6 +321,23 @@ export default function SniperScreen() {
             keyboardType="numeric"
           />
 
+          {/* AutoCop toggle */}
+          <TouchableOpacity
+            style={styles.autocopRow}
+            onPress={() => setFormAutocop((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.autocopCheck, formAutocop && styles.autocopCheckOn]}>
+              {formAutocop && <Ionicons name="flash" size={12} color="#000" />}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.autocopLabel}>⚡ AutoCop</Text>
+              <Text style={styles.autocopHint}>
+                Ouvre l'article automatiquement dans Vinted dès qu'il est détecté
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.saveBtn,
@@ -346,6 +374,12 @@ export default function SniperScreen() {
                 </View>
                 <Text style={styles.ruleKeywords}>🔍 {rule.keywords}</Text>
                 <Text style={styles.rulePrice}>Prix max : {rule.maxPrice}€</Text>
+                {rule.autocop && (
+                  <View style={styles.autocopBadge}>
+                    <Ionicons name="flash" size={9} color="#000" />
+                    <Text style={styles.autocopBadgeText}>AUTOCOP</Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.ruleActions}>
@@ -581,4 +615,24 @@ const styles = StyleSheet.create({
   emptyHint: { color: colors.textMuted, fontSize: 12, textAlign: "center", marginTop: 6, lineHeight: 18 },
 
   clearText: { color: colors.urgent, fontSize: 12, fontWeight: "700" },
+
+  // AutoCop
+  autocopRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: colors.surfaceElevated, borderRadius: 10,
+    padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border,
+  },
+  autocopCheck: {
+    width: 24, height: 24, borderRadius: 6, borderWidth: 1.5,
+    borderColor: colors.border, alignItems: "center", justifyContent: "center",
+  },
+  autocopCheckOn: { backgroundColor: colors.good, borderColor: colors.good },
+  autocopLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: "800" },
+  autocopHint: { color: colors.textMuted, fontSize: 10, marginTop: 2, lineHeight: 14 },
+  autocopBadge: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: colors.good, borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 2, alignSelf: "flex-start", marginTop: 4,
+  },
+  autocopBadgeText: { color: "#000", fontSize: 8, fontWeight: "900", letterSpacing: 1 },
 });

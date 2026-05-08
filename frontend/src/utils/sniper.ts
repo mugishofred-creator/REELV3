@@ -9,6 +9,7 @@ export type SniperRule = {
   keywords: string;
   maxPrice: number;
   enabled: boolean;
+  autocop: boolean;
   createdAt: string;
   hitsCount: number;
 };
