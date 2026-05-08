@@ -119,38 +119,12 @@ export async function directFetchMarketPrice(
 
 // ── User catalogue ────────────────────────────────────────────────────────────
 
-const ANON_UA = "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
-
-async function vintedGetAnon(path: string, params: Record<string, string | number>): Promise<unknown> {
-  const qs = Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
-  try {
-    const res = await fetch(`${VINTED_BASE}${path}?${qs}`, {
-      method: "GET",
-      headers: {
-        "User-Agent": ANON_UA,
-        Accept: "application/json, text/plain, */*",
-        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`Vinted ${res.status}`);
-    return res.json();
-  } catch (e) {
-    clearTimeout(timer);
-    throw e;
-  }
-}
-
 export async function directFetchUserItems(userId: string): Promise<DirectVintedItem[]> {
   const allItems: DirectVintedItem[] = [];
   let page = 1;
 
-  // catalog/items is a public endpoint — sending session cookies triggers CSRF 403
   while (page <= 5) {
-    const data = await vintedGetAnon("/catalog/items", {
+    const data = await vintedGet("/catalog/items", {
       user_id: userId,
       page,
       per_page: 96,

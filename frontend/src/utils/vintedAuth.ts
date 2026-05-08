@@ -56,14 +56,22 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 
   // Cookie web session → headers navigateur (cohérent avec la session)
   if (cookie) {
-    return {
+    const xsrfMatch = cookie.match(/XSRF-TOKEN=([^;]+)/);
+    let xsrfToken: string | null = null;
+    if (xsrfMatch) {
+      try { xsrfToken = decodeURIComponent(xsrfMatch[1].trim()); } catch { xsrfToken = xsrfMatch[1].trim(); }
+    }
+    const headers: Record<string, string> = {
       "User-Agent": BROWSER_UA,
       Accept: "application/json, text/plain, */*",
       "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
       "Cookie": cookie,
       "Origin": "https://www.vinted.fr",
       "Referer": "https://www.vinted.fr/",
+      "X-Requested-With": "XMLHttpRequest",
     };
+    if (xsrfToken) headers["X-XSRF-TOKEN"] = xsrfToken;
+    return headers;
   }
 
   // Pas d'auth
