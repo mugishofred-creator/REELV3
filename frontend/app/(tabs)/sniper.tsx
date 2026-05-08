@@ -44,8 +44,8 @@ async function registerBgTask() {
   }
 }
 
-// ── Foreground poll interval (15 s when screen is open) ───────────────────────
-const FOREGROUND_INTERVAL_MS = 15_000;
+// ── Foreground poll interval (3 min — évite le ban Vinted) ───────────────────
+const FOREGROUND_INTERVAL_MS = 180_000;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 

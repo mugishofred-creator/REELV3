@@ -111,7 +111,6 @@ export async function clearHits(): Promise<void> {
 // ── Vinted direct search (newest first, price capped) ─────────────────────────
 // Fastest strategy: fetch only 20 newest items, check price, skip seen IDs.
 
-import { getAuthHeaders } from "./vintedAuth";
 
 const VINTED_BASE = "https://www.vinted.fr/api/v2";
 
@@ -122,14 +121,21 @@ function parsePrice(raw: unknown): number {
   return parseFloat(String(raw ?? 0)) || 0;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function searchNewest(keywords: string, maxPrice: number): Promise<unknown[]> {
   const qs = `search_text=${encodeURIComponent(keywords)}&price_to=${maxPrice}&per_page=20&order=newest_first`;
-  const headers = await getAuthHeaders();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch(`${VINTED_BASE}/catalog/items?${qs}`, {
-      headers,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+      },
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -153,10 +159,11 @@ export async function runSniperCheck(rules: SniperRule[]): Promise<SniperHit[]> 
   const newHits: SniperHit[] = [];
   const updatedRules = [...rules];
 
-  await Promise.all(
-    activeRules.map(async (rule) => {
-      try {
-        const items = await searchNewest(rule.keywords, rule.maxPrice);
+  for (const rule of activeRules) {
+    try {
+      // Random delay 2–5s between rules to avoid bot detection
+      await delay(2000 + Math.random() * 3000);
+      const items = await searchNewest(rule.keywords, rule.maxPrice);
         for (const raw of items as Record<string, unknown>[]) {
           const id = String(raw.id ?? "");
           if (!id || seenIds.has(id)) continue;
@@ -185,12 +192,11 @@ export async function runSniperCheck(rules: SniperRule[]): Promise<SniperHit[]> 
           // increment hitsCount on the rule
           const idx = updatedRules.findIndex((r) => r.id === rule.id);
           if (idx !== -1) updatedRules[idx] = { ...updatedRules[idx], hitsCount: updatedRules[idx].hitsCount + 1 };
-        }
-      } catch {
-        // per-rule errors are silent — don't block other rules
       }
-    })
-  );
+    } catch {
+      // per-rule errors are silent — don't block other rules
+    }
+  }
 
   if (newHits.length > 0) {
     await Promise.all([
