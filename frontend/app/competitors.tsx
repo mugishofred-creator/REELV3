@@ -131,27 +131,21 @@ export default function CompetitorsScreen() {
             return h;
           }
           try {
-            // Verify session first
-            var meR = await fetch('/api/v2/users/current', { credentials: 'include', headers: buildHeaders() });
-            if (meR.status === 401 || meR.status === 403) {
-              throw new Error('Session Vinted invalide (auth=' + meR.status + ') — reconnectez-vous.');
-            }
-
             var all = [];
-            var lastStatus = 0;
-            var lastBody = '';
             for (var p = 1; p <= 5; p++) {
+              // Anonymous session — no credentials, fresh session cookies from incognito WebView
               var r = await fetch(
                 '/api/v2/catalog/items?user_id=${userId}&page=' + p + '&per_page=96&order=newest_first',
-                { credentials: 'include', headers: buildHeaders() }
+                { headers: buildHeaders() }
               );
-              lastStatus = r.status;
+              var lastStatus = r.status;
               if (!r.ok) {
+                var lastBody = '';
                 try { lastBody = (await r.text()).slice(0, 250); } catch(e) {}
                 // Fallback: try seller_id parameter
                 var r2 = await fetch(
                   '/api/v2/catalog/items?seller_id=${userId}&page=' + p + '&per_page=96&order=newest_first',
-                  { credentials: 'include', headers: buildHeaders() }
+                  { headers: buildHeaders() }
                 );
                 if (!r2.ok) {
                   throw new Error('HTTP ' + lastStatus + ' (xsrf=' + (getXsrf() ? 'oui' : 'non') + ') ' + lastBody);
@@ -228,12 +222,14 @@ export default function CompetitorsScreen() {
       <WebView
         ref={webViewRef}
         source={{ uri: "https://www.vinted.fr" }}
-        onLoadEnd={() => { webViewReady.current = true; }}
+        onLoadEnd={() => {
+          // Small delay to ensure anonymous session cookies are set
+          setTimeout(() => { webViewReady.current = true; }, 800);
+        }}
         onMessage={onWebViewMessage}
         javaScriptEnabled
         thirdPartyCookiesEnabled
-        sharedCookiesEnabled
-        domStorageEnabled
+        incognito
         style={styles.hiddenWebView}
       />
 
