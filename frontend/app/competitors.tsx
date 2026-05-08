@@ -113,14 +113,51 @@ export default function CompetitorsScreen() {
 
       webViewRef.current.injectJavaScript(`
         (async function() {
+          function getXsrf() {
+            var m = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+            if (!m) return null;
+            try { return decodeURIComponent(m[1]); } catch(e) { return m[1]; }
+          }
+          function getCsrfMeta() {
+            var el = document.querySelector('meta[name="csrf-token"]');
+            return el ? el.getAttribute('content') : null;
+          }
+          function buildHeaders() {
+            var h = { 'Accept': 'application/json, text/plain, */*', 'X-Requested-With': 'XMLHttpRequest' };
+            var x = getXsrf();
+            if (x) h['X-XSRF-TOKEN'] = x;
+            var c = getCsrfMeta();
+            if (c) h['X-CSRF-Token'] = c;
+            return h;
+          }
           try {
+            // Verify session first
+            var meR = await fetch('/api/v2/users/current', { credentials: 'include', headers: buildHeaders() });
+            if (meR.status === 401 || meR.status === 403) {
+              throw new Error('Session Vinted invalide (auth=' + meR.status + ') — reconnectez-vous.');
+            }
+
             var all = [];
+            var lastStatus = 0;
+            var lastBody = '';
             for (var p = 1; p <= 5; p++) {
               var r = await fetch(
                 '/api/v2/catalog/items?user_id=${userId}&page=' + p + '&per_page=96&order=newest_first',
-                { credentials: 'include', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }
+                { credentials: 'include', headers: buildHeaders() }
               );
-              if (!r.ok) throw new Error('HTTP ' + r.status);
+              lastStatus = r.status;
+              if (!r.ok) {
+                try { lastBody = (await r.text()).slice(0, 250); } catch(e) {}
+                // Fallback: try seller_id parameter
+                var r2 = await fetch(
+                  '/api/v2/catalog/items?seller_id=${userId}&page=' + p + '&per_page=96&order=newest_first',
+                  { credentials: 'include', headers: buildHeaders() }
+                );
+                if (!r2.ok) {
+                  throw new Error('HTTP ' + lastStatus + ' (xsrf=' + (getXsrf() ? 'oui' : 'non') + ') ' + lastBody);
+                }
+                r = r2;
+              }
               var d = await r.json();
               var items = d.items || [];
               if (!items.length) break;
@@ -195,6 +232,8 @@ export default function CompetitorsScreen() {
         onMessage={onWebViewMessage}
         javaScriptEnabled
         thirdPartyCookiesEnabled
+        sharedCookiesEnabled
+        domStorageEnabled
         style={styles.hiddenWebView}
       />
 
