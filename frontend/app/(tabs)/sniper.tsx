@@ -68,6 +68,8 @@ export default function SniperScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appState = useRef(AppState.currentState);
+  const isCheckingRef = useRef(false); // guard — évite les scans simultanés
+  const lastAutocopRef = useRef(0); // timestamp dernier autocop — anti-spam
 
   // ── Load data + notification tap handler ──────────────────────────────────
 
@@ -91,22 +93,28 @@ export default function SniperScreen() {
   // ── Foreground polling ─────────────────────────────────────────────────────
 
   const doCheck = useCallback(async (rulesOverride?: SniperRule[]) => {
+    if (isCheckingRef.current) return; // scan déjà en cours — on skip
     const currentRules = rulesOverride ?? rules;
     const enabledCount = currentRules.filter((r) => r.enabled).length;
     if (enabledCount === 0) return;
 
+    isCheckingRef.current = true;
     setChecking(true);
     let ok = false;
     try {
       const newHits = await runSniperCheck(currentRules);
       ok = true;
       if (newHits.length > 0) {
-        // AutoCop: open Vinted directly on first hit where rule has autocop enabled
-        for (const hit of newHits) {
-          const rule = currentRules.find((r) => r.id === hit.ruleId);
-          if (rule?.autocop) {
-            Linking.openURL(hit.vintedUrl).catch(() => null);
-            break;
+        // AutoCop: ouvre Vinted sur le premier hit autocop (max 1 fois / 2 min)
+        const now = Date.now();
+        if (now - lastAutocopRef.current > 120_000) {
+          for (const hit of newHits) {
+            const rule = currentRules.find((r) => r.id === hit.ruleId);
+            if (rule?.autocop) {
+              lastAutocopRef.current = now;
+              Linking.openURL(hit.vintedUrl).catch(() => null);
+              break;
+            }
           }
         }
         setHits((prev) => [...newHits, ...prev].slice(0, 100));
@@ -116,6 +124,7 @@ export default function SniperScreen() {
     } catch {
       // network error — don't update lastCheck so user knows it failed
     } finally {
+      isCheckingRef.current = false;
       setChecking(false);
       if (ok) setLastCheck(new Date());
       setLastCheckOk(ok);
