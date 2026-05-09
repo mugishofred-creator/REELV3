@@ -126,7 +126,7 @@ export default function PerformanceScreen() {
         (v) => v.sellPrice >= range.min && v.sellPrice < range.max
       );
       const count = items.length;
-      const avgDelay = count > 0 ? items.reduce((a, v) => a + v.delay, 0) / count : 0;
+      const avgDelay = count > 0 ? items.reduce((a, v) => a + (v.delay || 0), 0) / count : 0;
       const avgProfit = count > 0 ? items.reduce((a, v) => a + venteProfitOf(v), 0) / count : 0;
       return { label: range.label, count, avgDelay, avgProfit };
     });

@@ -27,7 +27,7 @@ export default function FiscalScreen() {
   const pctPlafond = caAnnuel > 0 ? (caAnnuel / SEUILS.plafondCA) * 100 : 0;
 
   return (
-    <ModalScreen title="Fiscal" subtitle="Estimation auto-entrepreneur 2024">
+    <ModalScreen title="Fiscal" subtitle={`Estimation auto-entrepreneur ${new Date().getFullYear()}`}>
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* ── Inputs ── */}

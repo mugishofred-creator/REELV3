@@ -7,8 +7,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Card } from "../src/components/Card";
 import { colors, shadow } from "../src/theme/colors";
-import { getAuthHeaders } from "../src/utils/vintedAuth";
-
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type Deal = {
@@ -42,12 +40,15 @@ function median(arr: number[]): number {
 async function searchVinted(query: string, maxPrice?: number, page = 1): Promise<unknown[]> {
   let qs = `search_text=${encodeURIComponent(query)}&per_page=96&page=${page}&order=price_low_to_high`;
   if (maxPrice) qs += `&price_to=${maxPrice}`;
-  const headers = await getAuthHeaders();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
     const res = await fetch(`${VINTED_BASE}/catalog/items?${qs}`, {
-      headers,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+      },
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -69,6 +70,7 @@ export default function NicheScannerScreen() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [scanned, setScanned] = useState(0);
   const [marketMedian, setMarketMedian] = useState(0);
+  const [scanError, setScanError] = useState("");
   const abortRef = useRef(false);
 
   const handleScan = async () => {
@@ -78,6 +80,7 @@ export default function NicheScannerScreen() {
     setScanning(true);
     setDeals([]);
     setScanned(0);
+    setScanError("");
     abortRef.current = false;
 
     try {
@@ -87,7 +90,10 @@ export default function NicheScannerScreen() {
       const med = median(allPrices);
       setMarketMedian(med);
 
-      if (med === 0) return;
+      if (med === 0) {
+        setScanError("Aucun résultat trouvé pour ces mots-clés. Essaie d'autres termes ou vérifie ta connexion.");
+        return;
+      }
 
       // 2. Scan cheapest listings (price low to high)
       const threshold = med * (1 - (Number(minDiscount) || 30) / 100);
@@ -118,8 +124,8 @@ export default function NicheScannerScreen() {
       // Sort by best discount first
       foundDeals.sort((a, b) => b.discountPct - a.discountPct);
       setDeals(foundDeals);
-    } catch {
-      // silent
+    } catch (e) {
+      setScanError(e instanceof Error ? `Erreur : ${e.message}` : "Erreur réseau. Réessaie.");
     } finally {
       setScanning(false);
     }
@@ -176,6 +182,13 @@ export default function NicheScannerScreen() {
             </TouchableOpacity>
           )}
         </Card>
+
+        {/* ── Erreur ── */}
+        {scanError ? (
+          <Card style={{ marginBottom: 12, borderColor: colors.urgentBorder, borderWidth: 1, backgroundColor: colors.urgentBg }}>
+            <Text style={{ color: colors.urgent, fontSize: 13, fontWeight: "700" }}>{scanError}</Text>
+          </Card>
+        ) : null}
 
         {/* ── Résultats ── */}
         {marketMedian > 0 && (

@@ -76,10 +76,11 @@ interface ItemCardProps {
   age: number;
   urgency: Urgency;
   reposted: boolean;
+  priceDrop: number;
   onRepost: () => void;
 }
 
-function ItemCard({ item, age, urgency, reposted, onRepost }: ItemCardProps) {
+function ItemCard({ item, age, urgency, reposted, priceDrop, onRepost }: ItemCardProps) {
   const borderColor = URGENCY_COLOR[urgency];
   const ageLabel = age === 0 ? "Aujourd'hui" : `${age} jours`;
 
@@ -116,6 +117,14 @@ function ItemCard({ item, age, urgency, reposted, onRepost }: ItemCardProps) {
           </Text>
         </View>
       </View>
+      {priceDrop > 0 && item.sellPrice > 0 && (
+        <View style={styles.priceDropHint}>
+          <Text style={styles.priceDropText}>
+            💡 Baisse de {priceDrop}% → {Math.round(item.sellPrice * (1 - priceDrop / 100))} €
+            {priceDrop >= 20 ? "  (non vendu depuis 3+ sem.)" : "  (non vendu depuis 2+ sem.)"}
+          </Text>
+        </View>
+      )}
       <TouchableOpacity
         onPress={onRepost}
         disabled={reposted}
@@ -157,13 +166,15 @@ export default function RepostManagerScreen() {
     item: StockItem;
     age: number;
     urgency: Urgency;
+    priceDrop: number;
   }
 
   const enriched: EnrichedItem[] = useMemo(
     () =>
       activeItems.map((item) => {
         const age = repostAge(item);
-        return { item, age, urgency: getUrgency(age) };
+        const priceDrop = age >= 21 ? 20 : age >= 14 ? 10 : 0;
+        return { item, age, urgency: getUrgency(age), priceDrop };
       }),
     [activeItems]
   );
@@ -249,12 +260,13 @@ export default function RepostManagerScreen() {
         {urgentItems.length > 0 && (
           <>
             <SectionHeader urgency="urgent" count={urgentItems.length} />
-            {urgentItems.map(({ item, age, urgency }) => (
+            {urgentItems.map(({ item, age, urgency, priceDrop }) => (
               <ItemCard
                 key={item.id}
                 item={item}
                 age={age}
                 urgency={urgency}
+                priceDrop={priceDrop}
                 reposted={repostedToday.has(item.id)}
                 onRepost={() => handleRepost(item)}
               />
@@ -266,12 +278,13 @@ export default function RepostManagerScreen() {
         {bientotItems.length > 0 && (
           <>
             <SectionHeader urgency="bientot" count={bientotItems.length} />
-            {bientotItems.map(({ item, age, urgency }) => (
+            {bientotItems.map(({ item, age, urgency, priceDrop }) => (
               <ItemCard
                 key={item.id}
                 item={item}
                 age={age}
                 urgency={urgency}
+                priceDrop={priceDrop}
                 reposted={repostedToday.has(item.id)}
                 onRepost={() => handleRepost(item)}
               />
@@ -283,12 +296,13 @@ export default function RepostManagerScreen() {
         {okItems.length > 0 && (
           <>
             <SectionHeader urgency="ok" count={okItems.length} />
-            {okItems.map(({ item, age, urgency }) => (
+            {okItems.map(({ item, age, urgency, priceDrop }) => (
               <ItemCard
                 key={item.id}
                 item={item}
                 age={age}
                 urgency={urgency}
+                priceDrop={priceDrop}
                 reposted={repostedToday.has(item.id)}
                 onRepost={() => handleRepost(item)}
               />
@@ -415,6 +429,22 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 1.5,
+  },
+
+  // Price drop hint
+  priceDropHint: {
+    marginBottom: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: colors.warningBg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
+  },
+  priceDropText: {
+    color: colors.warning,
+    fontSize: 11,
+    fontWeight: "700",
   },
 
   // Repost button — default (outline green)

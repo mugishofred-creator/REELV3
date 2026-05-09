@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, TextInput,
-  ActivityIndicator, Modal,
+  ActivityIndicator,
 } from "react-native";
-import { WebView } from "react-native-webview";
-import type { WebViewMessageEvent } from "react-native-webview";
-import CookieManager from "@react-native-cookies/cookies";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "../../src/components/ScreenHeader";
@@ -24,127 +21,6 @@ import {
   type VintedItem,
 } from "../../src/utils/vintedApi";
 import { detectSeason } from "../../src/utils/logic";
-import { clearVintedAuth, getSavedLogin, getVintedToken, saveVintedSession, isAuthenticated } from "../../src/utils/vintedAuth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// ── Vinted WebView Login ─────────────────────────────────────────────────────
-
-const INJECT_JS = `
-(function() {
-  var cookie = document.cookie || '';
-  fetch('/api/v2/users/current', {credentials: 'include', headers: {Accept: 'application/json'}})
-    .then(r => r.json())
-    .then(function(d) {
-      var u = d && (d.user || d);
-      var token = (u && (u.access_token || u.token || u.api_token)) || '';
-      var login = (u && (u.email || u.login || u.username)) || '';
-      window.ReactNativeWebView.postMessage(JSON.stringify({token: token, login: login, cookie: cookie}));
-    })
-    .catch(function() {
-      window.ReactNativeWebView.postMessage(JSON.stringify({token: '', login: '', cookie: cookie}));
-    });
-})();
-true;
-`;
-
-function VintedWebLogin({ onSuccess, onClose }: { onSuccess: (login: string) => void; onClose: () => void }) {
-  const webRef = useRef<WebView>(null);
-  const [loading, setLoading] = useState(true);
-  const [confirmVisible, setConfirmVisible] = useState(false);
-
-  const onMessage = async (e: WebViewMessageEvent) => {
-    try {
-      const { token, login, cookie } = JSON.parse(e.nativeEvent.data) as { token: string; login: string; cookie: string };
-      // Ne marquer comme connecté que si on a vraiment des credentials
-      if (!token && !cookie) return;
-      await saveVintedSession({
-        token: token || undefined,
-        cookie: cookie || undefined,
-        login: login || "compte Vinted",
-      });
-      onSuccess(login || "compte Vinted");
-    } catch { /* ignore */ }
-  };
-
-  const tryInjectAndConfirm = async () => {
-    try {
-      // Flush force l'écriture des cookies WebView dans le store natif Android
-      await CookieManager.flush();
-      const cookies = await CookieManager.get("https://www.vinted.fr");
-      const cookieStr = Object.entries(cookies)
-        .map(([k, v]) => `${k}=${(v as { value: string }).value}`)
-        .join("; ");
-      if (cookieStr) {
-        await saveVintedSession({ cookie: cookieStr, login: "compte Vinted" });
-        onSuccess("compte Vinted");
-        return;
-      }
-    } catch { /* ignore */ }
-
-    // Fallback : injection JS (Bearer token)
-    if (webRef.current) {
-      webRef.current.injectJavaScript(INJECT_JS);
-    }
-  };
-
-  const onNavChange = (state: { url: string }) => {
-    const url = state.url || "";
-    const isAuth = url.includes("/signup") || url.includes("/login") ||
-      url.includes("/oauth") || url.includes("/auth") ||
-      url.includes("accounts.google") || url.includes("appleid.apple") ||
-      url.includes("select_type");
-    if (!isAuth && url.includes("vinted.fr")) {
-      setConfirmVisible(true);
-      if (webRef.current) webRef.current.injectJavaScript(INJECT_JS);
-    }
-  };
-
-  return (
-    <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
-        <View style={wStyles.bar}>
-          <Text style={wStyles.title}>Connexion Vinted</Text>
-          <TouchableOpacity onPress={onClose} style={wStyles.closeBtn}>
-            <Text style={wStyles.closeText}>Fermer</Text>
-          </TouchableOpacity>
-        </View>
-        {confirmVisible && (
-          <TouchableOpacity style={wStyles.confirmBtn} onPress={tryInjectAndConfirm}>
-            <Text style={wStyles.confirmText}>✓ Je suis connecté — Continuer</Text>
-          </TouchableOpacity>
-        )}
-        {loading && (
-          <View style={wStyles.loader}>
-            <ActivityIndicator size="large" color={colors.good} />
-            <Text style={wStyles.loaderText}>Chargement…</Text>
-          </View>
-        )}
-        <WebView
-          ref={webRef}
-          source={{ uri: "https://www.vinted.fr/member/signup/select_type" }}
-          onLoadEnd={() => setLoading(false)}
-          onNavigationStateChange={onNavChange}
-          onMessage={onMessage}
-          javaScriptEnabled
-          thirdPartyCookiesEnabled
-          sharedCookiesEnabled
-          style={{ flex: 1 }}
-        />
-      </View>
-    </Modal>
-  );
-}
-
-const wStyles = StyleSheet.create({
-  bar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, paddingTop: 52 },
-  title: { color: colors.textPrimary, fontSize: 16, fontWeight: "700" },
-  closeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.surfaceElevated },
-  closeText: { color: colors.textSecondary, fontSize: 14, fontWeight: "600" },
-  confirmBtn: { backgroundColor: colors.good, padding: 14, alignItems: "center" },
-  confirmText: { color: colors.bg, fontWeight: "800", fontSize: 14 },
-  loader: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, zIndex: 10 },
-  loaderText: { color: colors.textMuted, fontSize: 13, marginTop: 10 },
-});
 
 const MENU = [
   { key: "repost-manager", path: "/repost-manager", title: "Repost Manager", desc: "File de priorité · reposts quotidiens · visibilité max", icon: "refresh-outline" as const, color: colors.good },
@@ -178,30 +54,10 @@ export default function PlusScreen() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND);
   const [urlSaved, setUrlSaved] = useState(false);
 
-  // ── Vinted auth ──
-  const [authStatus, setAuthStatus] = useState<"none" | "ok">("none");
-  const [loggedInAs, setLoggedInAs] = useState("");
-  const [showLoginWeb, setShowLoginWeb] = useState(false);
-
   useEffect(() => {
     getSavedVintedUserId().then(setVintedInput);
     getBackendUrl().then(setBackendUrl);
-    getSavedLogin().then((l) => { if (l) setLoggedInAs(l); });
-    isAuthenticated().then((ok) => { if (ok) setAuthStatus("ok"); });
   }, []);
-
-  const handleVintedLogout = async () => {
-    await clearVintedAuth();
-    setAuthStatus("none");
-    setLoggedInAs("");
-  };
-
-  const handleAuthSuccess = (login: string) => {
-    setAuthStatus("ok");
-    setLoggedInAs(login);
-    setShowLoginWeb(false);
-    Alert.alert("✓ Connecté !", "Tu peux maintenant importer ton catalogue et utiliser le sniper.");
-  };
 
   const thisMonth = currentMonthStats(ventes);
   const thisWeek = lastSevenDaysStats(ventes);
@@ -337,31 +193,6 @@ export default function PlusScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.container} testID="plus-scroll">
       <ScreenHeader title="Plus" subtitle="Outils & objectifs" />
-
-      {/* ── CONNEXION VINTED ── */}
-      <SectionTitle title="Connexion Vinted" subtitle="Obligatoire pour le sniper, l'import et les concurrents" />
-      <Card>
-        {authStatus === "ok" ? (
-          <View style={styles.authRow}>
-            <View style={styles.authOkDot} />
-            <Text style={styles.authOkText}>Connecté{loggedInAs ? ` : ${loggedInAs}` : ""}</Text>
-            <TouchableOpacity onPress={handleVintedLogout} style={styles.authLogoutBtn}>
-              <Text style={styles.authLogoutText}>Déconnecter</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.authConnectBtn} onPress={() => setShowLoginWeb(true)}>
-            <Ionicons name="log-in-outline" size={18} color={colors.bg} />
-            <Text style={styles.syncBtnText}>Se connecter à Vinted</Text>
-          </TouchableOpacity>
-        )}
-      </Card>
-      {showLoginWeb && (
-        <VintedWebLogin
-          onSuccess={handleAuthSuccess}
-          onClose={() => setShowLoginWeb(false)}
-        />
-      )}
 
       {/* ── SYNCHRONISATION VINTED ── */}
       <SectionTitle title="Synchronisation Vinted" subtitle="Importe ton catalogue en un tap" />
@@ -675,6 +506,7 @@ function LotCalculator() {
   const [itemCount, setItemCount] = useState("");
   const [feesPerItem, setFeesPerItem] = useState("3");
   const [targetProfit, setTargetProfit] = useState("10");
+  const [calculated, setCalculated] = useState(false);
 
   const lot = Number(lotPrice) || 0;
   const count = Math.max(1, Number(itemCount) || 1);
@@ -686,20 +518,20 @@ function LotCalculator() {
   const totalRevNeeded = minSellPrice * count;
   const breakEvenCount = lot > 0 ? Math.ceil(lot / (minSellPrice - fees)) : 0;
 
-  const hasData = lot > 0 && Number(itemCount) > 0;
+  const canCalculate = lot > 0 && Number(itemCount) > 0;
 
   return (
     <Card style={lcStyles.card} testID="lot-calculator">
       <View style={lcStyles.row}>
         <View style={{ flex: 1 }}>
           <Text style={lcStyles.label}>Prix du lot (€)</Text>
-          <TextInput style={lcStyles.input} value={lotPrice} onChangeText={setLotPrice}
+          <TextInput style={lcStyles.input} value={lotPrice} onChangeText={(v) => { setLotPrice(v); setCalculated(false); }}
             placeholder="Ex : 40" placeholderTextColor={colors.textMuted}
             keyboardType="numeric" testID="lot-price" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={lcStyles.label}>Nb d'articles</Text>
-          <TextInput style={lcStyles.input} value={itemCount} onChangeText={setItemCount}
+          <TextInput style={lcStyles.input} value={itemCount} onChangeText={(v) => { setItemCount(v); setCalculated(false); }}
             placeholder="Ex : 15" placeholderTextColor={colors.textMuted}
             keyboardType="numeric" testID="lot-count" />
         </View>
@@ -707,19 +539,29 @@ function LotCalculator() {
       <View style={lcStyles.row}>
         <View style={{ flex: 1 }}>
           <Text style={lcStyles.label}>Frais / article (€)</Text>
-          <TextInput style={lcStyles.input} value={feesPerItem} onChangeText={setFeesPerItem}
+          <TextInput style={lcStyles.input} value={feesPerItem} onChangeText={(v) => { setFeesPerItem(v); setCalculated(false); }}
             placeholder="3" placeholderTextColor={colors.textMuted}
             keyboardType="numeric" testID="lot-fees" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={lcStyles.label}>Profit cible / article (€)</Text>
-          <TextInput style={lcStyles.input} value={targetProfit} onChangeText={setTargetProfit}
+          <TextInput style={lcStyles.input} value={targetProfit} onChangeText={(v) => { setTargetProfit(v); setCalculated(false); }}
             placeholder="10" placeholderTextColor={colors.textMuted}
             keyboardType="numeric" testID="lot-target" />
         </View>
       </View>
 
-      {hasData && (
+      <TouchableOpacity
+        style={[lcStyles.calcBtn, !canCalculate && lcStyles.calcBtnDisabled]}
+        onPress={() => { if (canCalculate) setCalculated(true); }}
+        disabled={!canCalculate}
+        testID="lot-calculate"
+      >
+        <Ionicons name="calculator-outline" size={16} color={canCalculate ? colors.bg : colors.textMuted} />
+        <Text style={[lcStyles.calcBtnText, !canCalculate && { color: colors.textMuted }]}>Calculer</Text>
+      </TouchableOpacity>
+
+      {calculated && canCalculate && (
         <View style={lcStyles.results}>
           <View style={lcStyles.resultRow}>
             <Text style={lcStyles.resultLabel}>Coût par article</Text>
@@ -757,6 +599,12 @@ const lcStyles = StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
     color: colors.textPrimary, fontSize: 14, fontWeight: "700",
   },
+  calcBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: colors.good, borderRadius: 12, paddingVertical: 12, marginBottom: 4,
+  },
+  calcBtnDisabled: { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
+  calcBtnText: { color: colors.bg, fontWeight: "900", fontSize: 14 },
   results: { borderTopWidth: 1, borderTopColor: colors.borderSoft, paddingTop: 12, marginTop: 2 },
   resultRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   resultLabel: { color: colors.textMuted, fontSize: 13 },
@@ -837,11 +685,5 @@ const styles = StyleSheet.create({
   urlSaveBtn: { paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.info, borderRadius: 10, justifyContent: "center" },
   urlSaveBtnDone: { backgroundColor: colors.good },
   urlSaveBtnText: { color: colors.bg, fontWeight: "800", fontSize: 13 },
-  authRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  authOkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.good },
-  authOkText: { flex: 1, color: colors.textPrimary, fontSize: 13, fontWeight: "600" },
-  authLogoutBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: colors.urgent },
-  authLogoutText: { color: colors.urgent, fontSize: 12, fontWeight: "700" },
-  authConnectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.good, borderRadius: 12, paddingVertical: 12 },
   syncBtnText: { color: colors.bg, fontWeight: "800", fontSize: 14 },
 });

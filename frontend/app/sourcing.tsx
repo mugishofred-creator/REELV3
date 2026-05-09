@@ -70,7 +70,8 @@ export default function Sourcing() {
     const b = brand.trim();
     const c = category.trim();
     if (b.length < 2) return;
-    getBrandTrend(b, c).then(setTrend);
+    const timeout = new Promise<MarketSnapshot[]>((resolve) => setTimeout(() => resolve([]), 5000));
+    Promise.race([getBrandTrend(b, c), timeout]).then(setTrend);
   }, [brand, category]);
 
   // ── Personal history ──
