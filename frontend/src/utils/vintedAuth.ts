@@ -3,6 +3,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const TOKEN_KEY = "vm:vintedToken";
 const COOKIE_KEY = "vm:vintedCookie";
 const LOGIN_KEY = "vm:vintedLogin";
+const ANON_COOKIE_KEY = "vm:anonCookie";
+
+export async function getAnonCookie(): Promise<string | null> {
+  try { return await AsyncStorage.getItem(ANON_COOKIE_KEY); } catch { return null; }
+}
+
+export async function saveAnonCookie(cookie: string): Promise<void> {
+  try { await AsyncStorage.setItem(ANON_COOKIE_KEY, cookie); } catch { /* ignore */ }
+}
 
 export async function getVintedToken(): Promise<string | null> {
   try { return await AsyncStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -42,9 +51,11 @@ const UA = "com.vinted.android/24.6.0 (Linux; Android 13; SM-S918B Build/TP1A.22
 const BROWSER_UA = "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
-  const [token, cookie] = await Promise.all([getVintedToken(), getVintedCookie()]);
+  const [token, userCookie, anonCookie] = await Promise.all([
+    getVintedToken(), getVintedCookie(), getAnonCookie(),
+  ]);
 
-  // Bearer token (OAuth mobile) → headers Android app
+  // 1. Bearer token (OAuth mobile)
   if (token && token !== "session") {
     return {
       "User-Agent": UA,
@@ -54,7 +65,8 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
     };
   }
 
-  // Cookie web session → headers navigateur (cohérent avec la session)
+  // 2. Meilleur cookie disponible : session user > session anonyme
+  const cookie = userCookie || anonCookie;
   if (cookie) {
     const xsrfMatch = cookie.match(/XSRF-TOKEN=([^;]+)/);
     let xsrfToken: string | null = null;
@@ -74,9 +86,9 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
     return headers;
   }
 
-  // Pas d'auth
+  // 3. Fallback minimaliste (peut déclencher 404 si Vinted exige une session)
   return {
-    "User-Agent": UA,
+    "User-Agent": BROWSER_UA,
     Accept: "application/json, text/plain, */*",
     "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
   };
