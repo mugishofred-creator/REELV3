@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ModalScreen } from "../src/components/ModalScreen";
 import { Card } from "../src/components/Card";
 import { colors, shadow } from "../src/theme/colors";
+import { getAuthHeaders } from "../src/utils/vintedAuth";
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type Deal = {
@@ -43,12 +44,9 @@ async function searchVinted(query: string, maxPrice?: number, page = 1): Promise
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
+    const authHeaders = await getAuthHeaders();
     const res = await fetch(`${VINTED_BASE}/catalog/items?${qs}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-        Accept: "application/json, text/plain, */*",
-        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-      },
+      headers: authHeaders,
       signal: controller.signal,
     });
     clearTimeout(timer);

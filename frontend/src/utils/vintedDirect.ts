@@ -42,6 +42,17 @@ function median(arr: number[]): number {
     : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function removeOutliers(prices: number[]): number[] {
+  if (prices.length < 4) return prices;
+  const sorted = [...prices].sort((a, b) => a - b);
+  const q1 = sorted[Math.floor(sorted.length * 0.25)];
+  const q3 = sorted[Math.floor(sorted.length * 0.75)];
+  const iqr = q3 - q1;
+  const lo = q1 - 1.5 * iqr;
+  const hi = q3 + 1.5 * iqr;
+  return sorted.filter((p) => p >= lo && p <= hi);
+}
+
 async function vintedGet(path: string, params: Record<string, string | number>): Promise<unknown> {
   const qs = Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
   const url = `${VINTED_BASE}${path}?${qs}`;
@@ -104,15 +115,17 @@ export async function directFetchMarketPrice(
     return { query, count: 0, median: 0, average: 0, min: 0, max: 0, samples: [] };
   }
 
-  const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+  const filtered = removeOutliers(prices);
+  const pool = filtered.length > 0 ? filtered : prices;
+  const avg = pool.reduce((a, b) => a + b, 0) / pool.length;
 
   return {
     query,
-    count: prices.length,
-    median: Math.round(median(prices) * 100) / 100,
+    count: pool.length,
+    median: Math.round(median(pool) * 100) / 100,
     average: Math.round(avg * 100) / 100,
-    min: Math.round(Math.min(...prices) * 100) / 100,
-    max: Math.round(Math.max(...prices) * 100) / 100,
+    min: Math.round(Math.min(...pool) * 100) / 100,
+    max: Math.round(Math.max(...pool) * 100) / 100,
     samples,
   };
 }

@@ -1,9 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { DataProvider, useData } from "../src/store/context";
 import { View } from "react-native";
+import { WebView } from "react-native-webview";
+import CookieManager from "@react-native-cookies/cookies";
 import { colors } from "../src/theme/colors";
 import {
   setupNotifications,
@@ -18,6 +20,40 @@ import {
   forceDelete,
   listingFlag,
 } from "../src/utils/logic";
+import { saveAnonCookie } from "../src/utils/vintedAuth";
+
+function VintedSessionBridge() {
+  const [done, setDone] = useState(false);
+  const webViewRef = useRef<WebView>(null);
+
+  if (done) return null;
+
+  return (
+    <WebView
+      ref={webViewRef}
+      source={{ uri: "https://www.vinted.fr" }}
+      style={{ position: "absolute", top: -2000, left: -2000, width: 1, height: 1 }}
+      javaScriptEnabled
+      domStorageEnabled
+      thirdPartyCookiesEnabled
+      sharedCookiesEnabled
+      onLoadEnd={async () => {
+          try {
+            await CookieManager.flush();
+            const cookies = await CookieManager.get("https://www.vinted.fr", true);
+            const cookieStr = Object.values(cookies)
+              .map((c) => `${c.name}=${c.value}`)
+              .join("; ");
+            if (cookieStr) await saveAnonCookie(cookieStr);
+          } catch {
+            // silent — app still works without cookie
+          } finally {
+            setDone(true);
+          }
+        }}
+      />
+  );
+}
 
 function NotificationsBridge() {
   const { stock, retours, clients, loaded } = useData();
@@ -60,6 +96,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <DataProvider>
         <NotificationsBridge />
+        <VintedSessionBridge />
         <View style={{ flex: 1, backgroundColor: colors.bg }}>
           <StatusBar style="light" />
           <Stack
