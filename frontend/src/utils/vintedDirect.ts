@@ -77,37 +77,44 @@ async function vintedGet(path: string, params: Record<string, string | number>):
 
 // ── Market price ──────────────────────────────────────────────────────────────
 
+const MARKET_PAGES = 3; // 3 × 96 = up to 288 listings for a better statistical sample
+
 export async function directFetchMarketPrice(
   brand: string,
   category: string
 ): Promise<DirectMarketData> {
   const query = `${brand} ${category}`.trim();
 
-  const data = await vintedGet("/catalog/items", {
-    search_text: query,
-    per_page: 96,
-    page: 1,
-    order: "relevance",
-  }) as { items?: unknown[] };
+  const pageResults = await Promise.all(
+    Array.from({ length: MARKET_PAGES }, (_, i) =>
+      vintedGet("/catalog/items", {
+        search_text: query,
+        per_page: 96,
+        page: i + 1,
+        order: "relevance",
+      }).catch(() => ({ items: [] }))
+    )
+  ) as { items?: unknown[] }[];
 
-  const items = data.items ?? [];
   const prices: number[] = [];
   const samples: DirectMarketData["samples"] = [];
 
-  for (const item of items as Record<string, unknown>[]) {
-    const price = parsePrice(item.price);
-    if (price <= 0) continue;
-    prices.push(price);
+  for (const data of pageResults) {
+    for (const item of (data.items ?? []) as Record<string, unknown>[]) {
+      const price = parsePrice(item.price);
+      if (price <= 0) continue;
+      prices.push(price);
 
-    if (samples.length < 12) {
-      const photos = (item.photos as { url?: string; full_size_url?: string }[] | undefined) ?? [];
-      const photo = photos[0]?.url ?? photos[0]?.full_size_url ?? "";
-      samples.push({
-        title: String(item.title ?? ""),
-        price,
-        brand: String(item.brand_title ?? ""),
-        photo,
-      });
+      if (samples.length < 12) {
+        const photos = (item.photos as { url?: string; full_size_url?: string }[] | undefined) ?? [];
+        const photo = photos[0]?.url ?? photos[0]?.full_size_url ?? "";
+        samples.push({
+          title: String(item.title ?? ""),
+          price,
+          brand: String(item.brand_title ?? ""),
+          photo,
+        });
+      }
     }
   }
 
