@@ -4,6 +4,7 @@ import {
   TouchableOpacity, AppState, AppStateStatus, Image,
   ActivityIndicator, Linking,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import * as BackgroundFetch from "expo-background-fetch";
@@ -50,6 +51,7 @@ const FOREGROUND_INTERVAL_MS = 15_000;
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SniperScreen() {
+  const router = useRouter();
   const [rules, setRules] = useState<SniperRule[]>([]);
   const [hits, setHits] = useState<SniperHit[]>([]);
   const [active, setActive] = useState(false);
@@ -419,34 +421,52 @@ export default function SniperScreen() {
             </TouchableOpacity>
           </View>
           {hits.map((hit) => (
-            <TouchableOpacity
-              key={`${hit.id}-${hit.detectedAt}`}
-              onPress={() => Linking.openURL(hit.vintedUrl).catch(() => null)}
-              activeOpacity={0.75}
-            >
-              <Card style={styles.hitCard} accent="good">
-                <View style={styles.hitRow}>
-                  {hit.photo ? (
-                    <Image source={{ uri: hit.photo }} style={styles.hitPhoto} />
-                  ) : (
-                    <View style={[styles.hitPhoto, styles.hitPhotoPlaceholder]}>
-                      <Ionicons name="shirt-outline" size={20} color={colors.textMuted} />
-                    </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.hitTitle} numberOfLines={2}>{hit.title}</Text>
-                    {hit.brand ? <Text style={styles.hitBrand}>{hit.brand}</Text> : null}
-                    <Text style={styles.hitMeta}>
-                      Règle: {hit.ruleName} · {new Date(hit.detectedAt).toLocaleTimeString("fr-FR")}
-                    </Text>
+            <Card key={`${hit.id}-${hit.detectedAt}`} style={styles.hitCard} accent="good">
+              <View style={styles.hitRow}>
+                {hit.photo ? (
+                  <Image source={{ uri: hit.photo }} style={styles.hitPhoto} />
+                ) : (
+                  <View style={[styles.hitPhoto, styles.hitPhotoPlaceholder]}>
+                    <Ionicons name="shirt-outline" size={20} color={colors.textMuted} />
                   </View>
-                  <View style={styles.hitPriceWrap}>
-                    <Text style={styles.hitPrice}>{hit.price}€</Text>
-                    <Text style={styles.hitOpen}>OUVRIR →</Text>
-                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.hitTitle} numberOfLines={2}>{hit.title}</Text>
+                  {hit.brand ? <Text style={styles.hitBrand}>{hit.brand}</Text> : null}
+                  <Text style={styles.hitMeta}>
+                    {hit.ruleName} · {new Date(hit.detectedAt).toLocaleTimeString("fr-FR")}
+                  </Text>
                 </View>
-              </Card>
-            </TouchableOpacity>
+                <View style={styles.hitPriceWrap}>
+                  <Text style={styles.hitPrice}>{hit.price}€</Text>
+                </View>
+              </View>
+              <View style={styles.hitActions}>
+                <TouchableOpacity
+                  style={styles.hitBuyBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/fast-buy",
+                      params: {
+                        url: hit.vintedUrl,
+                        title: hit.title,
+                        price: String(hit.price),
+                      },
+                    })
+                  }
+                >
+                  <Ionicons name="flash" size={14} color="#000" />
+                  <Text style={styles.hitBuyText}>ACHETER</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.hitOpenBtn}
+                  onPress={() => Linking.openURL(hit.vintedUrl).catch(() => null)}
+                >
+                  <Ionicons name="open-outline" size={14} color={colors.textMuted} />
+                  <Text style={styles.hitOpenText}>Ouvrir</Text>
+                </TouchableOpacity>
+              </View>
+            </Card>
           ))}
         </>
       )}
@@ -614,7 +634,37 @@ const styles = StyleSheet.create({
     borderColor: colors.good,
   },
   hitPrice: { color: colors.good, fontSize: 16, fontWeight: "900" },
-  hitOpen: { color: colors.good, fontSize: 9, fontWeight: "900", letterSpacing: 0.5, marginTop: 3, textAlign: "center" },
+  hitActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+  },
+  hitBuyBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: colors.good,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  hitBuyText: { color: "#000", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 },
+  hitOpenBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  hitOpenText: { color: colors.textMuted, fontSize: 12, fontWeight: "700" },
 
   tipsCard: { marginTop: 8, marginBottom: 12 },
   tipRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 5 },
