@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clone Vocal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --border: #2e2e40;
+      --accent: #7c6af7;
+      --accent-dim: #4a41a0;
+      --text: #e8e8f0;
+      --text-muted: #888899;
+      --success: #4caf7d;
+      --error: #f05a6a;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      gap: 20px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+
+    label { font-size: 0.9rem; color: var(--text-muted); }
+
+    input[type="text"], input[type="url"], textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+
+    textarea { resize: vertical; min-height: 90px; font-family: inherit; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      user-select: none;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-danger { background: var(--error); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+
+    .row { display: flex; gap: 10px; }
+    .row .btn { flex: 1; }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      background: var(--text-muted);
+    }
+    .status-dot.ok { background: var(--success); }
+    .status-dot.err { background: var(--error); }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    audio {
+      width: 100%;
+      border-radius: 8px;
+      accent-color: var(--accent);
+    }
+
+    #recording-timer {
+      font-size: 0.85rem;
+      color: var(--error);
+      font-weight: 600;
+    }
+
+    .hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 0.88rem;
+      transition: transform 0.3s ease;
+      z-index: 99;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.ok { border-color: var(--success); color: var(--success); }
+    #toast.err { border-color: var(--error); color: var(--error); }
+  </style>
+</head>
+<body>
+  <h1>Clone Vocal</h1>
+
+  <!-- ── ÉTAPE 1 : URL Colab ── -->
+  <div class="card">
+    <span class="card-title">Étape 1 — Connexion Colab</span>
+
+    <label for="serverUrl">URL ngrok (depuis ton notebook Colab)</label>
+    <input type="url" id="serverUrl" placeholder="https://xxxx.ngrok-free.app" />
+
+    <button class="btn btn-outline" onclick="checkStatus()">Tester la connexion</button>
+
+    <div class="status-line">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Non connecté</span>
+    </div>
+  </div>
+
+  <!-- ── ÉTAPE 2 : Échantillon vocal ── -->
+  <div class="card">
+    <span class="card-title">Étape 2 — Ta voix</span>
+    <p class="hint">Enregistre ou importe un extrait de ta voix (30 sec – 3 min, voix claire, sans bruit).</p>
+
+    <div class="row">
+      <button class="btn btn-outline" id="recordBtn" onclick="toggleRecord()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="7"/>
+        </svg>
+        Enregistrer
+      </button>
+      <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">
+        Importer
+      </button>
+    </div>
+
+    <input type="file" id="fileInput" accept="audio/*" style="display:none" onchange="handleFileImport(event)" />
+    <span id="recording-timer"></span>
+
+    <div id="samplePreview" style="display:none">
+      <label>Aperçu de l'échantillon</label>
+      <audio id="sampleAudio" controls></audio>
+    </div>
+
+    <button class="btn btn-success" id="uploadBtn" onclick="uploadSample()" disabled>
+      Envoyer au serveur
+    </button>
+
+    <div class="status-line">
+      <span class="status-dot" id="voiceDot"></span>
+      <span id="voiceText">Aucun échantillon envoyé</span>
+    </div>
+  </div>
+
+  <!-- ── ÉTAPE 3 : Synthèse ── -->
+  <div class="card">
+    <span class="card-title">Étape 3 — Génère ta voix</span>
+
+    <label for="langSelect">Langue</label>
+    <select id="langSelect">
+      <option value="fr">Français</option>
+      <option value="en">English</option>
+      <option value="es">Español</option>
+      <option value="de">Deutsch</option>
+      <option value="pt">Português</option>
+      <option value="it">Italiano</option>
+    </select>
+
+    <label for="textInput">Texte à prononcer (max 1000 caractères)</label>
+    <textarea id="textInput" placeholder="Bonjour, ceci est ma voix clonée..." maxlength="1000"></textarea>
+    <span id="charCount" style="font-size:0.78rem;color:var(--text-muted)">0 / 1000</span>
+
+    <button class="btn btn-primary" id="generateBtn" onclick="generateSpeech()" disabled>
+      Générer
+    </button>
+
+    <div id="resultSection" style="display:none">
+      <label>Résultat</label>
+      <audio id="resultAudio" controls></audio>
+      <button class="btn btn-outline" onclick="downloadResult()" style="margin-top:10px">
+        Télécharger .wav
+      </button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let timerInterval = null;
+    let elapsedSeconds = 0;
+    let sampleBlob = null;
+    let resultBlob = null;
+    let voiceReady = false;
+
+    const getUrl = () => document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
+
+    // ── Toast ──────────────────────────────────────────────────
+    function toast(msg, type = "ok") {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.className = `show ${type}`;
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.className = "", 3000);
+    }
+
+    // ── Statut serveur ─────────────────────────────────────────
+    async function checkStatus() {
+      const url = getUrl();
+      if (!url) { toast("Colle d'abord l'URL ngrok", "err"); return; }
+      try {
+        const r = await fetch(`${url}/status`);
+        const d = await r.json();
+        document.getElementById("statusDot").className = "status-dot ok";
+        document.getElementById("statusText").textContent = "Connecté";
+        voiceReady = d.voice_ready;
+        updateVoiceStatus(d.voice_ready);
+        document.getElementById("generateBtn").disabled = !d.voice_ready;
+        toast("Serveur connecté");
+      } catch {
+        document.getElementById("statusDot").className = "status-dot err";
+        document.getElementById("statusText").textContent = "Connexion échouée";
+        toast("Impossible de joindre le serveur. Vérifie l'URL et que Colab tourne.", "err");
+      }
+    }
+
+    function updateVoiceStatus(ready) {
+      document.getElementById("voiceDot").className = `status-dot ${ready ? "ok" : ""}`;
+      document.getElementById("voiceText").textContent = ready
+        ? "Échantillon prêt sur le serveur"
+        : "Aucun échantillon envoyé";
+    }
+
+    // ── Enregistrement micro ───────────────────────────────────
+    async function toggleRecord() {
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        stopRecording();
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          sampleBlob = new Blob(recordedChunks, { type: "audio/webm" });
+          showSamplePreview(sampleBlob);
+          stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+        startTimer();
+        document.getElementById("recordBtn").innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+          </svg>
+          Arrêter`;
+        document.getElementById("recordBtn").classList.replace("btn-outline", "btn-danger");
+      } catch {
+        toast("Accès micro refusé", "err");
+      }
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      stopTimer();
+      document.getElementById("recordBtn").innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="7"/>
+        </svg>
+        Enregistrer`;
+      document.getElementById("recordBtn").classList.replace("btn-danger", "btn-outline");
+    }
+
+    function startTimer() {
+      elapsedSeconds = 0;
+      timerInterval = setInterval(() => {
+        elapsedSeconds++;
+        const m = String(Math.floor(elapsedSeconds / 60)).padStart(2, "0");
+        const s = String(elapsedSeconds % 60).padStart(2, "0");
+        document.getElementById("recording-timer").textContent = `Enregistrement : ${m}:${s}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      document.getElementById("recording-timer").textContent = "";
+    }
+
+    // ── Import fichier ─────────────────────────────────────────
+    function handleFileImport(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      sampleBlob = file;
+      showSamplePreview(file);
+    }
+
+    function showSamplePreview(blob) {
+      const url = URL.createObjectURL(blob);
+      document.getElementById("sampleAudio").src = url;
+      document.getElementById("samplePreview").style.display = "block";
+      document.getElementById("uploadBtn").disabled = false;
+    }
+
+    // ── Upload échantillon ─────────────────────────────────────
+    async function uploadSample() {
+      const url = getUrl();
+      if (!url) { toast("URL du serveur manquante", "err"); return; }
+      if (!sampleBlob) { toast("Aucun échantillon à envoyer", "err"); return; }
+
+      const btn = document.getElementById("uploadBtn");
+      btn.disabled = true;
+      btn.textContent = "Envoi...";
+
+      try {
+        const form = new FormData();
+        form.append("audio", sampleBlob, "reference.wav");
+        const r = await fetch(`${url}/upload`, { method: "POST", body: form });
+        if (!r.ok) throw new Error();
+        toast("Échantillon envoyé !");
+        updateVoiceStatus(true);
+        voiceReady = true;
+        document.getElementById("generateBtn").disabled = false;
+      } catch {
+        toast("Échec de l'envoi. Vérifie que le serveur tourne.", "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Envoyer au serveur";
+      }
+    }
+
+    // ── Synthèse vocale ────────────────────────────────────────
+    async function generateSpeech() {
+      const url = getUrl();
+      const text = document.getElementById("textInput").value.trim();
+      const lang = document.getElementById("langSelect").value;
+
+      if (!url) { toast("URL du serveur manquante", "err"); return; }
+      if (!text) { toast("Écris un texte à prononcer", "err"); return; }
+
+      const btn = document.getElementById("generateBtn");
+      btn.disabled = true;
+      btn.textContent = "Génération en cours...";
+
+      try {
+        const r = await fetch(`${url}/synthesize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, language: lang }),
+        });
+        if (!r.ok) {
+          const d = await r.json();
+          throw new Error(d.error || "Erreur serveur");
+        }
+        resultBlob = await r.blob();
+        const audioUrl = URL.createObjectURL(resultBlob);
+        document.getElementById("resultAudio").src = audioUrl;
+        document.getElementById("resultSection").style.display = "block";
+        document.getElementById("resultAudio").play();
+        toast("Audio généré !");
+      } catch (e) {
+        toast(e.message || "Génération échouée", "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Générer";
+      }
+    }
+
+    // ── Téléchargement ─────────────────────────────────────────
+    function downloadResult() {
+      if (!resultBlob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(resultBlob);
+      a.download = `clone_vocal_${Date.now()}.wav`;
+      a.click();
+    }
+
+    // ── Compteur caractères ────────────────────────────────────
+    document.getElementById("textInput").addEventListener("input", function () {
+      document.getElementById("charCount").textContent = `${this.value.length} / 1000`;
+    });
+  </script>
+</body>
+</html>
