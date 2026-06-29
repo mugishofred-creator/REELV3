@@ -265,11 +265,13 @@
     }
 
     // ── Statut serveur ─────────────────────────────────────────
+    const ngrokHeaders = { "ngrok-skip-browser-warning": "true" };
+
     async function checkStatus() {
       const url = getUrl();
       if (!url) { toast("Colle d'abord l'URL ngrok", "err"); return; }
       try {
-        const r = await fetch(`${url}/status`);
+        const r = await fetch(`${url}/status`, { headers: ngrokHeaders });
         const d = await r.json();
         document.getElementById("statusDot").className = "status-dot ok";
         document.getElementById("statusText").textContent = "Connecté";
@@ -393,7 +395,7 @@
       try {
         const form = new FormData();
         form.append("audio", sampleBlob, "reference.wav");
-        const r = await fetch(`${url}/upload`, { method: "POST", body: form });
+        const r = await fetch(`${url}/upload`, { method: "POST", body: form, headers: ngrokHeaders });
         if (!r.ok) throw new Error();
         toast("Échantillon envoyé !");
         updateVoiceStatus(true);
@@ -423,7 +425,7 @@
       try {
         const r = await fetch(`${url}/synthesize`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...ngrokHeaders },
           body: JSON.stringify({ text, language: lang }),
         });
         if (!r.ok) {
