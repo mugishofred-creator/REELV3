@@ -292,18 +292,37 @@
     }
 
     // ── Enregistrement micro ───────────────────────────────────
+    function getSupportedMimeType() {
+      const types = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/ogg",
+        "audio/mp4",
+      ];
+      for (const t of types) {
+        if (MediaRecorder.isTypeSupported(t)) return t;
+      }
+      return "";
+    }
+
     async function toggleRecord() {
       if (mediaRecorder && mediaRecorder.state === "recording") {
         stopRecording();
         return;
       }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast("Ton navigateur ne supporte pas le micro. Utilise Chrome.", "err");
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         recordedChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
+        const mimeType = getSupportedMimeType();
+        mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
         mediaRecorder.onstop = () => {
-          sampleBlob = new Blob(recordedChunks, { type: "audio/webm" });
+          sampleBlob = new Blob(recordedChunks, { type: mimeType || "audio/webm" });
           showSamplePreview(sampleBlob);
           stream.getTracks().forEach(t => t.stop());
         };
@@ -315,8 +334,8 @@
           </svg>
           Arrêter`;
         document.getElementById("recordBtn").classList.replace("btn-outline", "btn-danger");
-      } catch {
-        toast("Accès micro refusé", "err");
+      } catch (e) {
+        toast("Erreur micro : " + (e.message || e.name), "err");
       }
     }
 
