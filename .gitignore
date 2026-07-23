@@ -133,3 +133,7 @@ credentials.json
 *.pem
 *.key
 .credentials
+
+# built artifacts
+2pourcent.apk
+android-sdk/
