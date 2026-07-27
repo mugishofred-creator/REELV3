@@ -12,10 +12,12 @@ export function ModalScreen({
   title,
   subtitle,
   children,
+  kicker = "JOBPILOT",
 }: {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  kicker?: string;
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -29,7 +31,7 @@ export function ModalScreen({
         <View style={{ flex: 1 }}>
           <View style={styles.kickerRow}>
             <View style={styles.kickerDot} />
-            <Text style={styles.kicker}>VINTED MANAGER</Text>
+            <Text style={styles.kicker}>{kicker}</Text>
           </View>
           <Text style={styles.title}>{title}</Text>
           {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}

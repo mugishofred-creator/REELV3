@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Vinted Manager",
-    "slug": "vinted-manager",
-    "version": "1.2.0",
+    "name": "JobPilot",
+    "slug": "jobpilot",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "vintedmanager",
+    "scheme": "jobpilot",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "primaryColor": "#39FF14",
@@ -21,17 +21,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vintedmanager.app",
+      "bundleIdentifier": "com.jobpilot.app",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Ajoute des photos à tes articles",
-        "NSPhotoLibraryAddUsageDescription": "Enregistre des photos d'articles",
+        "NSDocumentsFolderUsageDescription": "Sélectionne ton CV depuis tes fichiers",
         "UIBackgroundModes": [
           "remote-notification"
         ]
       }
     },
     "android": {
-      "package": "com.vintedmanager.app",
+      "package": "com.jobpilot.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -60,12 +59,6 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0a0a0f"
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Ajoute des photos à tes articles"
         }
       ],
       [

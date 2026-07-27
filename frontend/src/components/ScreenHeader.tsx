@@ -7,10 +7,12 @@ export function ScreenHeader({
   title,
   subtitle,
   right,
+  kicker = "JOBPILOT",
 }: {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  kicker?: string;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -18,7 +20,7 @@ export function ScreenHeader({
       <View style={{ flex: 1 }}>
         <View style={styles.kickerRow}>
           <View style={styles.kickerDot} />
-          <Text style={styles.kicker}>VINTED MANAGER</Text>
+          <Text style={styles.kicker}>{kicker}</Text>
         </View>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}

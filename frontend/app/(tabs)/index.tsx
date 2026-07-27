@@ -1,519 +1,498 @@
-import React, { useMemo } from "react";
-import { ScrollView, View, Text, StyleSheet } from "react-native";
+import React, { useMemo, useState } from "react";
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useData } from "../../src/store/context";
 import { ScreenHeader } from "../../src/components/ScreenHeader";
 import { StatCard } from "../../src/components/StatCard";
 import { Card, SectionTitle } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { ProgressBar } from "../../src/components/ProgressBar";
-import { MiniBarChart } from "../../src/components/MiniBarChart";
-import { colors } from "../../src/theme/colors";
-import { computeNiches, globalWarnings } from "../../src/utils/logic";
-import {
-  computeDashboardFromAnalyzed,
-  businessHealthScore,
-} from "../../src/utils/analytics";
-import { computeMonthlyStats } from "../../src/utils/monthly";
-import {
-  computeProjections,
-  computeSaleStreak,
-  currentMonthStats,
-} from "../../src/utils/projections";
-import { useAnalyzedStock } from "../../src/hooks/useAnalyzedStock";
-
-const URGENCY_RANK: Record<string, number> = {
-  SUPPRIMER: 0,
-  LIQUIDER: 1,
-  BAISSE_IMMEDIATE: 2,
-  BAISSER: 3,
-  REPOST: 4,
-};
+import { colors, radius, shadow } from "../../src/theme/colors";
+import { daysUntil, statusLabel, statusTone, timeAgoISO } from "../../src/utils/format";
+import { isAIReady, strategicAdviceAI, type StrategicAdvice } from "../../src/utils/ai";
 
 export default function Dashboard() {
-  const { ventes, clients, retours, stock, goals } = useData();
-  const analyzed = useAnalyzedStock();
+  const router = useRouter();
+  const { profile, applications, campaign, ai, cvs, letters } = useData();
+  const [advice, setAdvice] = useState<StrategicAdvice | null>(null);
+  const [adviceLoading, setAdviceLoading] = useState(false);
 
-  const data = useMemo(() => {
-    const kpi = computeDashboardFromAnalyzed(analyzed, ventes);
-    const health = businessHealthScore(kpi, analyzed, ventes, retours);
-    const projection = computeProjections(analyzed, ventes);
-    const thisMonth = currentMonthStats(ventes);
-    const streak = computeSaleStreak(ventes);
-
-    const monthly = computeMonthlyStats(ventes).slice(0, 6).reverse();
-    const chartData = monthly.map((m, i) => ({
-      label: m.label.slice(0, 3),
-      value: m.profit,
-      highlight: i === monthly.length - 1,
-    }));
-
-    const topAction = analyzed
-      .filter(
-        ({ analysis: a }) => a.action !== "ANALYSE" && a.action !== "GARDER"
-      )
-      .sort(
-        (a, b) =>
-          (URGENCY_RANK[a.analysis.action] ?? 9) -
-          (URGENCY_RANK[b.analysis.action] ?? 9)
-      )
-      .slice(0, 4);
-
-    const niches = computeNiches(ventes);
-    const warnings = globalWarnings(stock, retours);
-    const now = Date.now();
-    const relaunch = clients.filter((c) => {
-      const diffH = (now - new Date(c.lastContact).getTime()) / 3600000;
-      return c.status === "sans_reponse" && diffH >= 24;
-    }).length;
-
+  const stats = useMemo(() => {
+    const envoyees = applications.filter((a) => a.status !== "file");
+    const enFile = applications.filter((a) => a.status === "file");
+    const entretiens = applications.filter(
+      (a) => a.status === "entretien" || a.status === "offre"
+    );
+    const vues = applications.filter((a) => a.status !== "file" && a.status !== "envoyee");
+    const responseRate =
+      envoyees.length > 0
+        ? Math.round((vues.length / envoyees.length) * 100)
+        : 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const sentToday = applications.filter(
+      (a) => a.sentAt && a.sentAt.slice(0, 10) === today
+    ).length;
+    const followUpsDue = applications.filter((a) => {
+      if (!a.nextFollowUp || a.followUpSent) return false;
+      const d = daysUntil(a.nextFollowUp);
+      return d !== null && d <= 0;
+    });
     return {
-      kpi,
-      health,
-      projection,
-      thisMonth,
-      streak,
-      chartData,
-      topAction,
-      best: niches[0] ?? null,
-      worst: niches.length > 1 ? niches[niches.length - 1] : null,
-      warnings,
-      relaunch,
+      total: applications.length,
+      enFile: enFile.length,
+      envoyees: envoyees.length,
+      entretiens: entretiens.length,
+      responseRate,
+      sentToday,
+      followUpsDue,
     };
-  }, [analyzed, ventes, clients, retours, stock]);
+  }, [applications]);
 
-  const now = new Date();
-  const hour = now.getHours();
-  const greeting =
-    hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
-  const streakLabel =
-    data.streak > 1
-      ? `🔥 ${data.streak}j de suite`
-      : data.streak === 1
-      ? "🔥 Vente aujourd'hui"
-      : "";
+  const recent = useMemo(
+    () =>
+      [...applications]
+        .sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        )
+        .slice(0, 4),
+    [applications]
+  );
 
-  const caProgress =
-    goals.monthlyCAGoal > 0
-      ? data.thisMonth.revenue / goals.monthlyCAGoal
-      : 0;
-  const profitProgress =
-    goals.monthlyProfitGoal > 0
-      ? data.thisMonth.profit / goals.monthlyProfitGoal
-      : 0;
+  const profileComplete = !!profile.fullName && !!profile.headline;
+  const onboardingMissing = [
+    !profileComplete && { label: "Complète ton profil", route: "/profile-edit" as const },
+    cvs.length === 0 && { label: "Importe un CV", route: "/profil" as const },
+    letters.length === 0 && { label: "Crée une lettre type", route: "/letter-editor" as const },
+    !ai.apiKey && {
+      label: "Active l'IA (OpenAI)",
+      route: "/ai-settings" as const,
+    },
+  ].filter(Boolean) as { label: string; route: "/profile-edit" | "/profil" | "/letter-editor" | "/ai-settings" }[];
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
+
+  const runAdvice = async () => {
+    if (!isAIReady(ai)) {
+      Alert.alert("IA désactivée", "Configure ta clé OpenAI dans Profil → IA pour activer les conseils stratégiques.");
+      return;
+    }
+    if (applications.length < 3) {
+      Alert.alert("Pas assez de data", "Postule à au moins 3 offres pour activer l'analyse stratégique.");
+      return;
+    }
+    setAdviceLoading(true);
+    try {
+      const res = await strategicAdviceAI(ai, profile, applications);
+      setAdvice(res);
+    } catch (e: any) {
+      Alert.alert("IA indisponible", e?.message ?? "Réessaie plus tard.");
+    } finally {
+      setAdviceLoading(false);
+    }
+  };
 
   return (
     <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.container}
-      testID="dashboard-scroll"
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      contentContainerStyle={{ paddingBottom: 130 }}
     >
       <ScreenHeader
-        title={greeting}
-        subtitle={streakLabel || "Vinted Manager Pro"}
-      />
-
-      {/* ── ALERTES ── */}
-      {data.warnings.length > 0 && (
-        <Card style={styles.warningCard} testID="dashboard-warnings">
-          <Text style={styles.warningTitle}>⚠ ALERTES</Text>
-          {data.warnings.map((w, i) => (
-            <Text key={i} style={styles.warningText}>• {w}</Text>
-          ))}
-        </Card>
-      )}
-
-      {/* ── SANTÉ BUSINESS ── */}
-      <Card style={styles.healthCard} testID="dashboard-health">
-        <View style={styles.healthRow}>
-          <View style={styles.scoreBox}>
-            <Text style={[styles.scoreBig, { color: data.health.color }]}>
-              {data.health.score}
-            </Text>
-            <Text style={styles.scoreOver}>/100</Text>
-          </View>
-          <View style={styles.healthRight}>
-            <Text style={styles.healthLabel}>SANTÉ BUSINESS</Text>
-            <Text style={[styles.healthVerdict, { color: data.health.color }]}>
-              {data.health.label}
-            </Text>
-            <ProgressBar
-              progress={data.health.score / 100}
-              color={data.health.color}
-              height={5}
+        title={profile.fullName ? `${greeting}, ${profile.fullName.split(" ")[0]}` : "Pilote"}
+        subtitle={
+          profile.headline
+            ? `Mission : décrocher un poste de ${profile.headline}`
+            : "Mission : décrocher ton prochain poste"
+        }
+        right={
+          <TouchableOpacity
+            style={styles.aiBtn}
+            activeOpacity={0.85}
+            onPress={() => router.push("/ai-settings")}
+          >
+            <Ionicons
+              name="sparkles"
+              size={14}
+              color={isAIReady(ai) ? colors.good : colors.textMuted}
             />
-            <View style={styles.breakdownRow}>
-              <BreakdownPill
-                label="ROI"
-                val={data.health.breakdown.roi}
-                max={35}
-                color={data.health.color}
-              />
-              <BreakdownPill
-                label="Délai"
-                val={data.health.breakdown.delay}
-                max={30}
-                color={data.health.color}
-              />
-              <BreakdownPill
-                label="Stock"
-                val={data.health.breakdown.deadStock}
-                max={20}
-                color={data.health.color}
-              />
-              <BreakdownPill
-                label="Retours"
-                val={data.health.breakdown.returns}
-                max={15}
-                color={data.health.color}
-              />
-            </View>
-          </View>
-        </View>
-      </Card>
-
-      {/* ── KPIs ── */}
-      <View style={styles.grid}>
-        <StatCard
-          label="CA total"
-          value={`${data.kpi.ca.toFixed(0)} €`}
-          hint={`${ventes.length} vente${ventes.length > 1 ? "s" : ""}`}
-          tone="good"
-          testID="stat-ca"
-        />
-        <StatCard
-          label="Bénéfice net"
-          value={`${data.kpi.benefice >= 0 ? "+" : ""}${data.kpi.benefice.toFixed(0)} €`}
-          hint={`ROI ${data.kpi.roi.toFixed(0)}%`}
-          tone={data.kpi.benefice >= 0 ? "good" : "urgent"}
-          testID="stat-profit"
-        />
-      </View>
-      <View style={styles.grid}>
-        <StatCard
-          label="Délai moyen"
-          value={`${data.kpi.avgDelay.toFixed(1)} j`}
-          tone={
-            data.kpi.avgDelay === 0
-              ? "neutral"
-              : data.kpi.avgDelay > 14
-              ? "urgent"
-              : data.kpi.avgDelay > 7
-              ? "warning"
-              : "good"
-          }
-          testID="stat-delay"
-        />
-        <StatCard
-          label="Capital bloqué"
-          value={`${data.kpi.stockBlocked.toFixed(0)} €`}
-          hint={`${data.kpi.itemsCount} article${data.kpi.itemsCount > 1 ? "s" : ""}`}
-          tone="warning"
-          testID="stat-capital"
-        />
-      </View>
-
-      {/* ── PROJECTION + OBJECTIFS ── */}
-      <SectionTitle title="Ce mois" subtitle="Réalisé vs objectif" />
-      <Card testID="dashboard-projection">
-        <View style={styles.projRow}>
-          <View style={styles.projCol}>
-            <Text style={styles.projLabel}>CA RÉALISÉ</Text>
-            <Text style={[styles.projValue, { color: colors.good }]}>
-              {data.thisMonth.revenue.toFixed(0)} €
-            </Text>
-          </View>
-          <View style={styles.projDivider} />
-          <View style={styles.projCol}>
-            <Text style={styles.projLabel}>PROFIT RÉALISÉ</Text>
             <Text
               style={[
-                styles.projValue,
-                {
-                  color:
-                    data.thisMonth.profit >= 0 ? colors.good : colors.urgent,
-                },
+                styles.aiBtnText,
+                { color: isAIReady(ai) ? colors.good : colors.textMuted },
               ]}
             >
-              {data.thisMonth.profit >= 0 ? "+" : ""}
-              {data.thisMonth.profit.toFixed(0)} €
+              {isAIReady(ai) ? "IA ON" : "IA"}
             </Text>
-          </View>
-          <View style={styles.projDivider} />
-          <View style={styles.projCol}>
-            <Text style={styles.projLabel}>VENTES</Text>
-            <Text style={[styles.projValue, { color: colors.textPrimary }]}>
-              {data.thisMonth.count}
+          </TouchableOpacity>
+        }
+      />
+
+      <View style={styles.section}>
+        {onboardingMissing.length > 0 && (
+          <Card accent="warning" style={{ marginBottom: 14 }}>
+            <Text style={styles.cardTitle}>Setup en {onboardingMissing.length} étape{onboardingMissing.length > 1 ? "s" : ""}</Text>
+            <Text style={styles.cardSub}>
+              Termine la config pour que JobPilot puisse postuler à ta place.
             </Text>
-          </View>
-        </View>
-
-        <View style={styles.separator} />
-
-        <ProgressBar
-          progress={caProgress}
-          color={caProgress >= 1 ? colors.good : colors.warning}
-          label="Objectif CA"
-          valueLabel={`${data.thisMonth.revenue.toFixed(0)} / ${goals.monthlyCAGoal} €`}
-          height={7}
-        />
-        <View style={{ height: 10 }} />
-        <ProgressBar
-          progress={profitProgress}
-          color={profitProgress >= 1 ? colors.good : colors.info}
-          label="Objectif profit"
-          valueLabel={`${data.thisMonth.profit.toFixed(0)} / ${goals.monthlyProfitGoal} €`}
-          height={7}
-        />
-
-        {data.projection.projectedProfit > 0 && (
-          <View style={styles.projEstimate}>
-            <Text style={styles.projEstimateText}>
-              ~{data.projection.projectedProfit.toFixed(0)} € de profit estimé sur le stock restant
-              {data.projection.highConfidenceCount > 0
-                ? ` · ${data.projection.highConfidenceCount} article${data.projection.highConfidenceCount > 1 ? "s" : ""} à fort potentiel`
-                : ""}
-            </Text>
-          </View>
-        )}
-      </Card>
-
-      {/* ── MINI CHART MENSUEL ── */}
-      {data.chartData.length > 1 && (
-        <>
-          <SectionTitle title="Historique profit" subtitle="6 derniers mois" />
-          <Card testID="dashboard-chart">
-            <MiniBarChart
-              data={data.chartData}
-              color={colors.good}
-              height={52}
-            />
+            <View style={{ marginTop: 12, gap: 8 }}>
+              {onboardingMissing.map((m, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.setupRow}
+                  onPress={() => router.push(m.route)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.setupDot} />
+                  <Text style={styles.setupText}>{m.label}</Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </View>
           </Card>
-        </>
-      )}
+        )}
 
-      {/* ── DÉCISIONS ── */}
-      <SectionTitle title="Décisions à prendre" />
-      <View style={styles.grid}>
-        <StatCard
-          label="À baisser"
-          value={`${data.kpi.toBaisser}`}
-          tone={data.kpi.toBaisser > 0 ? "warning" : "good"}
-          testID="kpi-baisser"
-        />
-        <StatCard
-          label="À liquider"
-          value={`${data.kpi.toLiquider}`}
-          tone={data.kpi.toLiquider > 0 ? "urgent" : "good"}
-          testID="kpi-liquider"
-        />
-      </View>
-      <View style={styles.grid}>
-        <StatCard
-          label="Boostables"
-          value={`${data.kpi.boostable}`}
-          tone={data.kpi.boostable > 0 ? "good" : "neutral"}
-          testID="kpi-boost"
-        />
-        <StatCard
-          label="Clients relance"
-          value={`${data.relaunch}`}
-          tone={data.relaunch > 0 ? "warning" : "good"}
-          testID="kpi-relaunch"
-        />
+        <View style={styles.grid}>
+          <StatCard
+            label="Total candidatures"
+            value={String(stats.total)}
+            hint={stats.enFile > 0 ? `${stats.enFile} en file` : "—"}
+            tone="neutral"
+          />
+          <StatCard
+            label="Envoyées"
+            value={String(stats.envoyees)}
+            hint={`${stats.sentToday} aujourd'hui`}
+            tone="good"
+          />
+        </View>
+        <View style={[styles.grid, { marginTop: 10 }]}>
+          <StatCard
+            label="Entretiens"
+            value={String(stats.entretiens)}
+            hint={stats.entretiens > 0 ? "Closing zone" : "Vise +1 cette semaine"}
+            tone="warning"
+          />
+          <StatCard
+            label="Taux de réponse"
+            value={`${stats.responseRate}%`}
+            hint={
+              stats.responseRate >= 25
+                ? "Au-dessus de la moyenne"
+                : "Pousser la qualité"
+            }
+            tone={stats.responseRate >= 25 ? "good" : "neutral"}
+          />
+        </View>
       </View>
 
-      {/* ── TOP ACTIONS ── */}
-      {data.topAction.length > 0 && (
-        <>
-          <SectionTitle title="Actions prioritaires" />
-          <Card testID="dashboard-actions">
-            {data.topAction.map(({ item, analysis: a }, idx) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.actionRow,
-                  idx < data.topAction.length - 1 && styles.actionBorder,
-                ]}
+      <View style={styles.section}>
+        <SectionTitle title="Campagne du jour" subtitle="Limite quotidienne anti-spam" />
+        <Card>
+          <View style={styles.campaignRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.campaignVal}>
+                {campaign.sentToday}
+                <Text style={styles.campaignDenom}> / {campaign.dailyLimit}</Text>
+              </Text>
+              <Text style={styles.campaignLabel}>Candidatures envoyées</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.runBtn}
+              activeOpacity={0.85}
+              onPress={() => router.push("/campagne")}
+            >
+              <Ionicons name="flash" size={14} color="#000" />
+              <Text style={styles.runBtnText}>LANCER</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ marginTop: 10 }}>
+            <ProgressBar
+              progress={campaign.sentToday / Math.max(1, campaign.dailyLimit)}
+              color={colors.good}
+            />
+          </View>
+          {stats.enFile > 0 ? (
+            <Text style={styles.queueHint}>
+              {stats.enFile} offre{stats.enFile > 1 ? "s" : ""} en file d'attente
+            </Text>
+          ) : (
+            <Text style={styles.queueHint}>
+              Ajoute des offres depuis l'onglet Offres pour remplir la file.
+            </Text>
+          )}
+        </Card>
+      </View>
+
+      {stats.followUpsDue.length > 0 && (
+        <View style={styles.section}>
+          <SectionTitle
+            title="Relances dues"
+            subtitle="Augmente ton taux de réponse de 15 à 30 %"
+          />
+          <Card accent="warning">
+            <Text style={styles.cardTitle}>
+              {stats.followUpsDue.length} relance{stats.followUpsDue.length > 1 ? "s" : ""} à envoyer
+            </Text>
+            {stats.followUpsDue.slice(0, 3).map((a) => (
+              <TouchableOpacity
+                key={a.id}
+                style={styles.recentRow}
+                onPress={() =>
+                  router.push({
+                    pathname: "/application-detail",
+                    params: { id: a.id },
+                  })
+                }
               >
-                <View
-                  style={[
-                    styles.urgencyBar,
-                    {
-                      backgroundColor:
-                        a.action === "SUPPRIMER" || a.action === "LIQUIDER"
-                          ? colors.urgent
-                          : a.action === "BAISSE_IMMEDIATE"
-                          ? colors.warning
-                          : colors.info,
-                    },
-                  ]}
-                />
-                <View style={{ flex: 1, paddingLeft: 10 }}>
-                  <Text style={styles.actionName}>{item.name}</Text>
-                  <Text style={styles.actionMeta}>
-                    {item.brand} · {a.time.days.toFixed(0)}j · {item.views} vues
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recentTitle}>{a.offer.title}</Text>
+                  <Text style={styles.recentSub}>
+                    {a.offer.company} · envoyée {timeAgoISO(a.sentAt)}
                   </Text>
                 </View>
-                <Badge
-                  label={a.action.replace("_", " ")}
-                  tone={
-                    a.action === "SUPPRIMER" || a.action === "LIQUIDER"
-                      ? "urgent"
-                      : a.action === "BAISSE_IMMEDIATE"
-                      ? "warning"
-                      : "info"
-                  }
-                />
-              </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
             ))}
           </Card>
-        </>
+        </View>
       )}
 
-      {/* ── NICHES ── */}
-      <SectionTitle title="Niches" subtitle="Basé sur tes ventes" />
-      <View style={styles.grid}>
-        <Card style={styles.nicheCard} testID="dashboard-best-niche">
-          <Text style={styles.nicheBadge}>★ MEILLEURE</Text>
-          <Text style={[styles.nicheBrand, { color: colors.good }]}>
-            {data.best ? data.best.brand.toUpperCase() : "—"}
-          </Text>
-          <Text style={styles.nicheMeta}>
-            {data.best
-              ? `+${data.best.avgProfit.toFixed(0)}€/art · ${data.best.count} ventes`
-              : "Pas encore de données"}
-          </Text>
-        </Card>
-        <Card style={styles.nicheCard} testID="dashboard-worst-niche">
-          <Text style={[styles.nicheBadge, { color: colors.urgent }]}>
-            ✕ PIRE
-          </Text>
-          <Text style={[styles.nicheBrand, { color: colors.urgent }]}>
-            {data.worst ? data.worst.brand.toUpperCase() : "—"}
-          </Text>
-          <Text style={styles.nicheMeta}>
-            {data.worst
-              ? `${data.worst.avgProfit.toFixed(0)}€/art · ${data.worst.count} ventes`
-              : "—"}
-          </Text>
+      <View style={styles.section}>
+        <SectionTitle title="Conseil stratégique IA" subtitle="Apprentissage basé sur tes résultats" />
+        <Card>
+          {advice ? (
+            <>
+              <Text style={styles.adviceHeadline}>{advice.headline}</Text>
+              {advice.insights.length > 0 && (
+                <>
+                  <Text style={styles.adviceLabel}>Insights</Text>
+                  {advice.insights.map((it, i) => (
+                    <Text key={i} style={styles.adviceItem}>• {it}</Text>
+                  ))}
+                </>
+              )}
+              {advice.nextActions.length > 0 && (
+                <>
+                  <Text style={[styles.adviceLabel, { marginTop: 10 }]}>Actions</Text>
+                  {advice.nextActions.map((it, i) => (
+                    <Text key={i} style={[styles.adviceItem, { color: colors.good }]}>→ {it}</Text>
+                  ))}
+                </>
+              )}
+            </>
+          ) : (
+            <Text style={styles.adviceMuted}>
+              Lance une analyse IA pour identifier où concentrer tes efforts.
+            </Text>
+          )}
+          <TouchableOpacity
+            style={styles.adviceBtn}
+            activeOpacity={0.85}
+            onPress={runAdvice}
+            disabled={adviceLoading}
+          >
+            <Ionicons name="sparkles" size={14} color={colors.good} />
+            <Text style={styles.adviceBtnText}>
+              {adviceLoading ? "Analyse en cours…" : advice ? "Relancer l'analyse" : "Analyser ma stratégie"}
+            </Text>
+          </TouchableOpacity>
         </Card>
       </View>
 
-      <View style={{ height: 60 }} />
+      {recent.length > 0 && (
+        <View style={styles.section}>
+          <SectionTitle title="Activité récente" />
+          <Card style={{ paddingVertical: 4 }}>
+            {recent.map((a, idx) => (
+              <TouchableOpacity
+                key={a.id}
+                onPress={() =>
+                  router.push({
+                    pathname: "/application-detail",
+                    params: { id: a.id },
+                  })
+                }
+                style={[styles.recentRow, idx === recent.length - 1 && { borderBottomWidth: 0 }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recentTitle}>{a.offer.title}</Text>
+                  <Text style={styles.recentSub}>{a.offer.company} · {timeAgoISO(a.updatedAt)}</Text>
+                </View>
+                <Badge label={statusLabel(a.status)} tone={statusTone(a.status)} />
+              </TouchableOpacity>
+            ))}
+          </Card>
+        </View>
+      )}
     </ScrollView>
   );
 }
 
-function BreakdownPill({
-  label,
-  val,
-  max,
-  color,
-}: {
-  label: string;
-  val: number;
-  max: number;
-  color: string;
-}) {
-  const ratio = val / max;
-  return (
-    <View style={bStyles.pill}>
-      <Text style={bStyles.label}>{label}</Text>
-      <View style={bStyles.track}>
-        <View
-          style={[
-            bStyles.fill,
-            { width: `${ratio * 100}%`, backgroundColor: color },
-          ]}
-        />
-      </View>
-    </View>
-  );
-}
-
-const bStyles = StyleSheet.create({
-  pill: { flex: 1, alignItems: "center" },
-  label: { color: colors.textMuted, fontSize: 9, fontWeight: "700", letterSpacing: 0.5, marginBottom: 3 },
-  track: { width: "100%", height: 3, backgroundColor: colors.surfaceElevated, borderRadius: 2, overflow: "hidden" },
-  fill: { height: 3, borderRadius: 2 },
-});
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  container: { paddingHorizontal: 16, paddingBottom: 130 },
-
-  warningCard: {
-    marginBottom: 14,
-    borderColor: colors.warningBorder,
-    backgroundColor: colors.warningBg,
-  },
-  warningTitle: {
-    color: colors.warning,
-    fontSize: 10,
+  section: { paddingHorizontal: 20, marginBottom: 4 },
+  grid: { flexDirection: "row", gap: 10 },
+  cardTitle: {
+    color: colors.textPrimary,
+    fontSize: 15,
     fontWeight: "900",
-    letterSpacing: 2,
+    letterSpacing: -0.3,
+  },
+  cardSub: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  setupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    backgroundColor: "rgba(255,170,0,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,170,0,0.15)",
+  },
+  setupDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.warning,
+  },
+  setupText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  campaignRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  campaignVal: {
+    color: colors.textPrimary,
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  campaignDenom: {
+    color: colors.textMuted,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  campaignLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginTop: 2,
+  },
+  runBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: colors.good,
+    borderRadius: radius.pill,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    ...shadow.glow,
+  },
+  runBtnText: {
+    color: "#000",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  queueHint: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 10,
+  },
+  recentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  recentTitle: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  recentSub: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  adviceMuted: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  adviceHeadline: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "900",
+    letterSpacing: -0.2,
     marginBottom: 8,
   },
-  warningText: { color: colors.textPrimary, fontSize: 13, marginBottom: 3 },
-
-  healthCard: {
-    marginBottom: 14,
-    borderColor: colors.borderHighlight,
+  adviceLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginTop: 4,
+    marginBottom: 4,
   },
-  healthRow: { flexDirection: "row", alignItems: "center", gap: 18 },
-  scoreBox: {
+  adviceItem: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginVertical: 1,
+  },
+  adviceBtn: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    borderWidth: 2,
-    borderColor: colors.borderHighlight,
-    backgroundColor: colors.surfaceElevated,
-  },
-  scoreBig: { fontSize: 36, fontWeight: "900", letterSpacing: -1.5, lineHeight: 40 },
-  scoreOver: { color: colors.textMuted, fontSize: 10, fontWeight: "700" },
-  healthRight: { flex: 1, gap: 6 },
-  healthLabel: {
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  healthVerdict: { fontSize: 22, fontWeight: "900", letterSpacing: -0.5 },
-  breakdownRow: { flexDirection: "row", gap: 6, marginTop: 6 },
-
-  grid: { flexDirection: "row", gap: 10, marginBottom: 10 },
-
-  projRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
-  projCol: { flex: 1, alignItems: "center" },
-  projDivider: { width: 1, height: 36, backgroundColor: colors.borderSoft },
-  projLabel: { color: colors.textMuted, fontSize: 9, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 },
-  projValue: { fontSize: 22, fontWeight: "900", letterSpacing: -0.5 },
-  separator: { height: 1, backgroundColor: colors.borderSoft, marginBottom: 14 },
-  projEstimate: {
-    marginTop: 12,
-    padding: 12,
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
     backgroundColor: colors.goodBg,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.goodBorder,
   },
-  projEstimateText: { color: colors.good, fontSize: 12, fontWeight: "700", lineHeight: 18 },
-
-  actionRow: {
+  adviceBtnText: {
+    color: colors.good,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  aiBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    marginBottom: 4,
   },
-  actionBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderSoft },
-  urgencyBar: { width: 3, height: 38, borderRadius: 2 },
-  actionName: { color: colors.textPrimary, fontSize: 14, fontWeight: "800" },
-  actionMeta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
-
-  nicheCard: { flex: 1 },
-  nicheBadge: { color: colors.good, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 8 },
-  nicheBrand: { fontSize: 17, fontWeight: "900", letterSpacing: -0.3 },
-  nicheMeta: { color: colors.textMuted, fontSize: 11, marginTop: 4 },
+  aiBtnText: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
 });

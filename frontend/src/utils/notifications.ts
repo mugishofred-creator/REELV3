@@ -27,24 +27,23 @@ export async function setupNotifications(): Promise<boolean> {
   return granted;
 }
 
-export async function notifyUrgentActions(count: number) {
+export async function notifyFollowUpsDue(count: number) {
   if (Platform.OS === "web" || count <= 0) return;
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: "Vinted Manager",
+      title: "JobPilot",
       body:
         count === 1
-          ? "1 action urgente t'attend."
-          : `${count} actions urgentes t'attendent.`,
-      data: { type: "urgent" },
+          ? "1 relance à envoyer aujourd'hui."
+          : `${count} relances à envoyer aujourd'hui.`,
+      data: { type: "followup" },
     },
-    trigger: null, // immediate
+    trigger: null,
   });
 }
 
 export async function scheduleDailyReminder() {
   if (Platform.OS === "web") return;
-  // Cancel previously scheduled daily to avoid duplicates
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   for (const n of scheduled) {
     if (n.content?.data?.type === "daily") {
@@ -53,39 +52,14 @@ export async function scheduleDailyReminder() {
   }
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: "Check ton stock",
-      body: "C'est l'heure de vérifier tes actions du jour.",
+      title: "Top chrono",
+      body: "Lance ta campagne du jour — quelques candidatures qualifiées valent mieux que 100 spam.",
       data: { type: "daily" },
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
       hour: 9,
-      minute: 0,
-      repeats: true,
-    } as Notifications.CalendarTriggerInput,
-  });
-}
-
-export async function scheduleWeeklyBackupReminder() {
-  if (Platform.OS === "web") return;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  for (const n of scheduled) {
-    if (n.content?.data?.type === "backup") {
-      await Notifications.cancelScheduledNotificationAsync(n.identifier);
-    }
-  }
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "💾 Pense à sauvegarder",
-      body:
-        "Exporte tes données Vinted Manager pour ne rien perdre en cas de changement de téléphone.",
-      data: { type: "backup" },
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-      weekday: 1, // Sunday (1) per iOS / Android expo mapping
-      hour: 20,
-      minute: 0,
+      minute: 30,
       repeats: true,
     } as Notifications.CalendarTriggerInput,
   });

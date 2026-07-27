@@ -4,112 +4,214 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useMemo,
 } from "react";
 import { loadJSON, saveJSON, STORAGE_KEYS } from "./storage";
-import { detectSeason } from "../utils/logic";
 
-export interface StockItem {
+export type ContractType =
+  | "CDI"
+  | "CDD"
+  | "Stage"
+  | "Alternance"
+  | "Freelance"
+  | "Intérim";
+
+export type RemoteMode = "Sur site" | "Hybride" | "Télétravail";
+
+export type Platform =
+  | "LinkedIn"
+  | "Indeed"
+  | "Welcome to the Jungle"
+  | "APEC"
+  | "HelloWork"
+  | "France Travail"
+  | "Glassdoor";
+
+export type AppStatus =
+  | "file"
+  | "envoyee"
+  | "vue"
+  | "entretien"
+  | "offre"
+  | "refus";
+
+export interface Profile {
+  fullName: string;
+  headline: string;
+  email: string;
+  phone: string;
+  city: string;
+  linkedin: string;
+  portfolio: string;
+  summary: string;
+  skills: string[];
+  experienceYears: number;
+  educationLevel: string;
+  preferredContracts: ContractType[];
+  preferredRemote: RemoteMode[];
+  salaryMin: number;
+  availableFrom: string;
+}
+
+export interface AISettings {
+  apiKey: string;
+  model: string;
+  smartMode: boolean;
+}
+
+export interface CVDoc {
   id: string;
   name: string;
-  brand: string;
-  category: string;
-  buyPrice: number;
-  sellPrice: number;
-  views: number;
-  favorites: number;
-  daysOnline: number;
-  defect: boolean;
-  season: "ete" | "hiver" | "toute";
-  repostCount: number;
-  sold: boolean;
+  uri: string;
+  size?: number;
+  addedAt: string;
+  isDefault: boolean;
+  rawText?: string;
+}
+
+export interface Letter {
+  id: string;
+  name: string;
+  body: string;
+  isDefault: boolean;
   createdAt: string;
-  image?: string;
-  datePublication?: string;
-  fees?: number;
-  boostCost?: number;
-  sourceId?: string;  // Vinted listing ID for dedup on re-import
-  lastRepostDate?: string;
 }
 
-export interface Vente {
+export interface Offer {
   id: string;
-  name: string;
-  brand: string;
-  buyPrice: number;
-  sellPrice: number;
-  delay: number;
-  date: string;
-  fees?: number;
-  boostCost?: number;
+  title: string;
+  company: string;
+  location: string;
+  remote: RemoteMode;
+  contract: ContractType;
+  salaryMin?: number;
+  salaryMax?: number;
+  platform: Platform;
+  description: string;
+  skills: string[];
+  postedDaysAgo: number;
+  url: string;
+  highlight?: "junior" | "stage" | "remote" | "urgent";
 }
 
-export interface Client {
-  id: string;
-  pseudo: string;
-  product: string;
-  status: "interesse" | "negociation" | "sans_reponse";
-  lastContact: string;
+export interface Filters {
+  keywords: string;
+  location: string;
+  contracts: ContractType[];
+  remote: RemoteMode[];
+  platforms: Platform[];
+  salaryMin: number;
+  excludeFakeOffers: boolean;
+  minMatchScore: number;
 }
 
-export interface Retour {
+export interface Application {
   id: string;
-  product: string;
-  brand: string;
-  reason:
-    | "mauvaise taille"
-    | "défaut non mentionné"
-    | "non conforme"
-    | "changement d'avis";
-  refund: number;
-  date: string;
-}
-
-export interface Niche {
-  id: string;
-  name: string;
-  brand: string;
-  status: "active" | "test";
+  offer: Offer;
+  cvId?: string;
+  letterId?: string;
+  letterText?: string;
+  status: AppStatus;
+  matchScore?: number;
+  aiReasons?: string[];
+  aiRedFlags?: string[];
+  createdAt: string;
+  sentAt?: string;
+  updatedAt: string;
   notes: string;
+  nextFollowUp?: string;
+  followUpSent?: boolean;
+  responseAt?: string;
 }
 
-export interface Goals {
-  monthlyCAGoal: number;
-  monthlyProfitGoal: number;
-  avgDelayGoal: number;
-  weeklyItemsGoal: number;
+export interface Campaign {
+  running: boolean;
+  dailyLimit: number;
+  sentToday: number;
+  lastRunDate: string;
+  minScoreToAutoQueue: number;
 }
 
-export const DEFAULT_GOALS: Goals = {
-  monthlyCAGoal: 500,
-  monthlyProfitGoal: 200,
-  avgDelayGoal: 10,
-  weeklyItemsGoal: 5,
+export const DEFAULT_PROFILE: Profile = {
+  fullName: "",
+  headline: "",
+  email: "",
+  phone: "",
+  city: "",
+  linkedin: "",
+  portfolio: "",
+  summary: "",
+  skills: [],
+  experienceYears: 0,
+  educationLevel: "",
+  preferredContracts: [],
+  preferredRemote: [],
+  salaryMin: 0,
+  availableFrom: "",
+};
+
+export const DEFAULT_AI: AISettings = {
+  apiKey: "",
+  model: "gpt-4o-mini",
+  smartMode: true,
+};
+
+export const DEFAULT_FILTERS: Filters = {
+  keywords: "",
+  location: "",
+  contracts: [],
+  remote: [],
+  platforms: [],
+  salaryMin: 0,
+  excludeFakeOffers: true,
+  minMatchScore: 0,
+};
+
+export const DEFAULT_CAMPAIGN: Campaign = {
+  running: false,
+  dailyLimit: 25,
+  sentToday: 0,
+  lastRunDate: "",
+  minScoreToAutoQueue: 60,
 };
 
 type Ctx = {
-  stock: StockItem[];
-  ventes: Vente[];
-  clients: Client[];
-  retours: Retour[];
-  niches: Niche[];
-  goals: Goals;
+  profile: Profile;
+  ai: AISettings;
+  cvs: CVDoc[];
+  letters: Letter[];
+  filters: Filters;
+  applications: Application[];
+  campaign: Campaign;
   loaded: boolean;
-  addStock: (i: Omit<StockItem, "id" | "createdAt" | "season"> & { season?: StockItem["season"] }) => void;
-  updateStock: (id: string, patch: Partial<StockItem>) => void;
-  deleteStock: (id: string) => void;
-  markSold: (id: string, sellPrice?: number) => void;
-  addVente: (v: Omit<Vente, "id" | "date">) => void;
-  addClient: (c: Omit<Client, "id" | "lastContact">) => void;
-  updateClient: (id: string, patch: Partial<Client>) => void;
-  deleteClient: (id: string) => void;
-  addRetour: (r: Omit<Retour, "id" | "date">) => void;
-  deleteRetour: (id: string) => void;
-  addNiche: (n: Omit<Niche, "id">) => void;
-  updateNiche: (id: string, patch: Partial<Niche>) => void;
-  deleteNiche: (id: string) => void;
-  updateGoals: (patch: Partial<Goals>) => void;
+
+  updateProfile: (patch: Partial<Profile>) => void;
+  updateAI: (patch: Partial<AISettings>) => void;
+  addCV: (cv: Omit<CVDoc, "id" | "addedAt" | "isDefault"> & { isDefault?: boolean }) => void;
+  updateCV: (id: string, patch: Partial<CVDoc>) => void;
+  deleteCV: (id: string) => void;
+  setDefaultCV: (id: string) => void;
+  addLetter: (l: Omit<Letter, "id" | "createdAt" | "isDefault"> & { isDefault?: boolean }) => string;
+  updateLetter: (id: string, patch: Partial<Letter>) => void;
+  deleteLetter: (id: string) => void;
+  setDefaultLetter: (id: string) => void;
+  updateFilters: (patch: Partial<Filters>) => void;
+  resetFilters: () => void;
+
+  addApplication: (a: Omit<Application, "id" | "createdAt" | "updatedAt" | "status" | "notes"> & {
+    status?: AppStatus;
+    notes?: string;
+  }) => string;
+  updateApplication: (id: string, patch: Partial<Application>) => void;
+  deleteApplication: (id: string) => void;
+  setStatus: (id: string, status: AppStatus) => void;
+  markSent: (id: string) => void;
+  isQueuedOrApplied: (offerId: string) => boolean;
+
+  updateCampaign: (patch: Partial<Campaign>) => void;
+  resetSentToday: () => void;
+
   resetAll: () => void;
-  reloadFromStorage: () => Promise<void>;
 };
 
 const DataContext = createContext<Ctx | null>(null);
@@ -117,171 +219,272 @@ const DataContext = createContext<Ctx | null>(null);
 const rid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [stock, setStock] = useState<StockItem[]>([]);
-  const [ventes, setVentes] = useState<Vente[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [retours, setRetours] = useState<Retour[]>([]);
-  const [niches, setNiches] = useState<Niche[]>([]);
-  const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
+  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [ai, setAI] = useState<AISettings>(DEFAULT_AI);
+  const [cvs, setCVs] = useState<CVDoc[]>([]);
+  const [letters, setLetters] = useState<Letter[]>([]);
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [campaign, setCampaign] = useState<Campaign>(DEFAULT_CAMPAIGN);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const [s, v, c, r, n, g] = await Promise.all([
-        loadJSON<StockItem[]>(STORAGE_KEYS.stock, []),
-        loadJSON<Vente[]>(STORAGE_KEYS.ventes, []),
-        loadJSON<Client[]>(STORAGE_KEYS.clients, []),
-        loadJSON<Retour[]>(STORAGE_KEYS.retours, []),
-        loadJSON<Niche[]>(STORAGE_KEYS.niches, []),
-        loadJSON<Goals>(STORAGE_KEYS.goals, DEFAULT_GOALS),
+      const [p, a, c, l, f, apps, cmp] = await Promise.all([
+        loadJSON<Profile>(STORAGE_KEYS.profile, DEFAULT_PROFILE),
+        loadJSON<AISettings>(STORAGE_KEYS.ai, DEFAULT_AI),
+        loadJSON<CVDoc[]>(STORAGE_KEYS.cvs, []),
+        loadJSON<Letter[]>(STORAGE_KEYS.letters, []),
+        loadJSON<Filters>(STORAGE_KEYS.filters, DEFAULT_FILTERS),
+        loadJSON<Application[]>(STORAGE_KEYS.applications, []),
+        loadJSON<Campaign>(STORAGE_KEYS.campaign, DEFAULT_CAMPAIGN),
       ]);
-      setStock(s);
-      setVentes(v);
-      setClients(c);
-      setRetours(r);
-      setNiches(n);
-      setGoals(g);
+      setProfile({ ...DEFAULT_PROFILE, ...p });
+      setAI({ ...DEFAULT_AI, ...a });
+      setCVs(c);
+      setLetters(l);
+      setFilters({ ...DEFAULT_FILTERS, ...f });
+      setApplications(apps);
+      const today = todayKey();
+      const cmpFixed = cmp.lastRunDate !== today
+        ? { ...cmp, sentToday: 0, lastRunDate: today }
+        : cmp;
+      setCampaign({ ...DEFAULT_CAMPAIGN, ...cmpFixed });
       setLoaded(true);
     })();
   }, []);
 
-  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.stock, stock); }, [stock, loaded]);
-  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.ventes, ventes); }, [ventes, loaded]);
-  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.clients, clients); }, [clients, loaded]);
-  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.retours, retours); }, [retours, loaded]);
-  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.niches, niches); }, [niches, loaded]);
-  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.goals, goals); }, [goals, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.profile, profile); }, [profile, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.ai, ai); }, [ai, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.cvs, cvs); }, [cvs, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.letters, letters); }, [letters, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.filters, filters); }, [filters, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.applications, applications); }, [applications, loaded]);
+  useEffect(() => { if (loaded) saveJSON(STORAGE_KEYS.campaign, campaign); }, [campaign, loaded]);
 
-  const addStock: Ctx["addStock"] = useCallback((i) => {
-    const { season: providedSeason, ...rest } = i;
-    const season = providedSeason ?? detectSeason(rest.category);
-    setStock((p) => [{ id: rid(), createdAt: new Date().toISOString(), ...rest, season }, ...p]);
-  }, []);
-
-  const updateStock: Ctx["updateStock"] = useCallback(
-    (id, patch) => setStock((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
+  const updateProfile = useCallback(
+    (patch: Partial<Profile>) => setProfile((p) => ({ ...p, ...patch })),
+    []
+  );
+  const updateAI = useCallback(
+    (patch: Partial<AISettings>) => setAI((a) => ({ ...a, ...patch })),
     []
   );
 
-  const deleteStock: Ctx["deleteStock"] = useCallback(
-    (id) => setStock((p) => p.filter((x) => x.id !== id)),
-    []
-  );
-
-  const addVente: Ctx["addVente"] = useCallback((v) => {
-    setVentes((p) => [{ id: rid(), date: new Date().toISOString(), ...v }, ...p]);
-  }, []);
-
-  const markSold: Ctx["markSold"] = useCallback((id, price) => {
-    setStock((cur) => {
-      const item = cur.find((x) => x.id === id);
-      if (item) {
-        const sp = price ?? item.sellPrice;
-        const pub = item.datePublication
-          ? new Date(item.datePublication)
-          : (() => {
-              const base = new Date(item.createdAt || new Date());
-              if ((item.daysOnline || 0) > 0)
-                base.setDate(base.getDate() - item.daysOnline);
-              return base;
-            })();
-        const actualDays = Math.max(
-          0,
-          Math.round((Date.now() - pub.getTime()) / 86400000)
-        );
-        const vente: Vente = {
-          id: rid(),
-          date: new Date().toISOString(),
-          name: item.name,
-          brand: item.brand,
-          buyPrice: item.buyPrice,
-          sellPrice: sp,
-          delay: actualDays > 0 ? actualDays : item.daysOnline,
-          fees: item.fees ?? 0,
-          boostCost: item.boostCost ?? 0,
-        };
-        setVentes((p) => [vente, ...p]);
-      }
-      return cur.filter((x) => x.id !== id);
+  const addCV: Ctx["addCV"] = useCallback((cv) => {
+    setCVs((p) => {
+      const id = rid();
+      const isDefault = cv.isDefault ?? p.length === 0;
+      const next: CVDoc = {
+        id,
+        name: cv.name,
+        uri: cv.uri,
+        size: cv.size,
+        rawText: cv.rawText,
+        addedAt: new Date().toISOString(),
+        isDefault,
+      };
+      const cleaned = isDefault ? p.map((x) => ({ ...x, isDefault: false })) : p;
+      return [next, ...cleaned];
     });
   }, []);
 
-  const addClient: Ctx["addClient"] = useCallback((c) => {
-    setClients((p) => [{ id: rid(), lastContact: new Date().toISOString(), ...c }, ...p]);
+  const updateCV: Ctx["updateCV"] = useCallback(
+    (id, patch) => setCVs((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
+    []
+  );
+
+  const deleteCV: Ctx["deleteCV"] = useCallback((id) => {
+    setCVs((p) => {
+      const removed = p.find((x) => x.id === id);
+      const next = p.filter((x) => x.id !== id);
+      if (removed?.isDefault && next.length > 0) next[0].isDefault = true;
+      return [...next];
+    });
   }, []);
 
-  const updateClient: Ctx["updateClient"] = useCallback(
+  const setDefaultCV: Ctx["setDefaultCV"] = useCallback(
+    (id) => setCVs((p) => p.map((x) => ({ ...x, isDefault: x.id === id }))),
+    []
+  );
+
+  const addLetter: Ctx["addLetter"] = useCallback((l) => {
+    const id = rid();
+    setLetters((p) => {
+      const isDefault = l.isDefault ?? p.length === 0;
+      const next: Letter = {
+        id,
+        name: l.name,
+        body: l.body,
+        isDefault,
+        createdAt: new Date().toISOString(),
+      };
+      const cleaned = isDefault ? p.map((x) => ({ ...x, isDefault: false })) : p;
+      return [next, ...cleaned];
+    });
+    return id;
+  }, []);
+
+  const updateLetter: Ctx["updateLetter"] = useCallback(
+    (id, patch) => setLetters((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
+    []
+  );
+
+  const deleteLetter: Ctx["deleteLetter"] = useCallback((id) => {
+    setLetters((p) => {
+      const removed = p.find((x) => x.id === id);
+      const next = p.filter((x) => x.id !== id);
+      if (removed?.isDefault && next.length > 0) next[0].isDefault = true;
+      return [...next];
+    });
+  }, []);
+
+  const setDefaultLetter: Ctx["setDefaultLetter"] = useCallback(
+    (id) => setLetters((p) => p.map((x) => ({ ...x, isDefault: x.id === id }))),
+    []
+  );
+
+  const updateFilters = useCallback(
+    (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch })),
+    []
+  );
+  const resetFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
+
+  const addApplication: Ctx["addApplication"] = useCallback((a) => {
+    const id = rid();
+    const now = new Date().toISOString();
+    setApplications((p) => [
+      {
+        id,
+        offer: a.offer,
+        cvId: a.cvId,
+        letterId: a.letterId,
+        letterText: a.letterText,
+        status: a.status ?? "file",
+        matchScore: a.matchScore,
+        aiReasons: a.aiReasons,
+        aiRedFlags: a.aiRedFlags,
+        createdAt: now,
+        updatedAt: now,
+        notes: a.notes ?? "",
+        nextFollowUp: a.nextFollowUp,
+      },
+      ...p,
+    ]);
+    return id;
+  }, []);
+
+  const updateApplication: Ctx["updateApplication"] = useCallback(
     (id, patch) =>
-      setClients((p) =>
-        p.map((x) => x.id === id ? { ...x, ...patch, lastContact: new Date().toISOString() } : x)
+      setApplications((p) =>
+        p.map((x) =>
+          x.id === id
+            ? { ...x, ...patch, updatedAt: new Date().toISOString() }
+            : x
+        )
       ),
     []
   );
 
-  const deleteClient: Ctx["deleteClient"] = useCallback(
-    (id) => setClients((p) => p.filter((x) => x.id !== id)),
+  const deleteApplication: Ctx["deleteApplication"] = useCallback(
+    (id) => setApplications((p) => p.filter((x) => x.id !== id)),
     []
   );
 
-  const addRetour: Ctx["addRetour"] = useCallback((r) => {
-    setRetours((p) => [{ id: rid(), date: new Date().toISOString(), ...r }, ...p]);
+  const setStatus: Ctx["setStatus"] = useCallback(
+    (id, status) =>
+      setApplications((p) =>
+        p.map((x) => {
+          if (x.id !== id) return x;
+          const updates: Partial<Application> = {
+            status,
+            updatedAt: new Date().toISOString(),
+          };
+          if (status !== "file" && status !== "envoyee" && !x.responseAt) {
+            updates.responseAt = new Date().toISOString();
+          }
+          return { ...x, ...updates };
+        })
+      ),
+    []
+  );
+
+  const markSent: Ctx["markSent"] = useCallback((id) => {
+    const sentAt = new Date().toISOString();
+    const followUp = new Date();
+    followUp.setDate(followUp.getDate() + 7);
+    setApplications((p) =>
+      p.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              status: "envoyee",
+              sentAt,
+              updatedAt: sentAt,
+              nextFollowUp: followUp.toISOString(),
+            }
+          : x
+      )
+    );
+    setCampaign((c) => {
+      const today = todayKey();
+      const sent = c.lastRunDate === today ? c.sentToday + 1 : 1;
+      return { ...c, sentToday: sent, lastRunDate: today };
+    });
   }, []);
 
-  const deleteRetour: Ctx["deleteRetour"] = useCallback(
-    (id) => setRetours((p) => p.filter((x) => x.id !== id)),
+  const isQueuedOrApplied = useCallback(
+    (offerId: string) => applications.some((a) => a.offer.id === offerId),
+    [applications]
+  );
+
+  const updateCampaign = useCallback(
+    (patch: Partial<Campaign>) => setCampaign((c) => ({ ...c, ...patch })),
     []
   );
 
-  const addNiche: Ctx["addNiche"] = useCallback((n) => {
-    setNiches((p) => [{ id: rid(), ...n }, ...p]);
-  }, []);
-
-  const updateNiche: Ctx["updateNiche"] = useCallback(
-    (id, patch) => setNiches((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
-    []
-  );
-
-  const deleteNiche: Ctx["deleteNiche"] = useCallback(
-    (id) => setNiches((p) => p.filter((x) => x.id !== id)),
-    []
-  );
-
-  const updateGoals: Ctx["updateGoals"] = useCallback(
-    (patch) => setGoals((g) => ({ ...g, ...patch })),
+  const resetSentToday = useCallback(
+    () => setCampaign((c) => ({ ...c, sentToday: 0, lastRunDate: todayKey() })),
     []
   );
 
   const resetAll = useCallback(() => {
-    setStock([]); setVentes([]); setClients([]); setRetours([]); setNiches([]);
+    setProfile(DEFAULT_PROFILE);
+    setAI(DEFAULT_AI);
+    setCVs([]);
+    setLetters([]);
+    setFilters(DEFAULT_FILTERS);
+    setApplications([]);
+    setCampaign(DEFAULT_CAMPAIGN);
   }, []);
 
-  const reloadFromStorage = useCallback(async () => {
-    const [s, v, c, r, n, g] = await Promise.all([
-      loadJSON<StockItem[]>(STORAGE_KEYS.stock, []),
-      loadJSON<Vente[]>(STORAGE_KEYS.ventes, []),
-      loadJSON<Client[]>(STORAGE_KEYS.clients, []),
-      loadJSON<Retour[]>(STORAGE_KEYS.retours, []),
-      loadJSON<Niche[]>(STORAGE_KEYS.niches, []),
-      loadJSON<Goals>(STORAGE_KEYS.goals, DEFAULT_GOALS),
-    ]);
-    setStock(s); setVentes(v); setClients(c); setRetours(r); setNiches(n); setGoals(g);
-  }, []);
-
-  return (
-    <DataContext.Provider
-      value={{
-        stock, ventes, clients, retours, niches, goals, loaded,
-        addStock, updateStock, deleteStock, markSold, addVente,
-        addClient, updateClient, deleteClient,
-        addRetour, deleteRetour,
-        addNiche, updateNiche, deleteNiche,
-        updateGoals, resetAll, reloadFromStorage,
-      }}
-    >
-      {children}
-    </DataContext.Provider>
+  const value = useMemo<Ctx>(
+    () => ({
+      profile, ai, cvs, letters, filters, applications, campaign, loaded,
+      updateProfile, updateAI,
+      addCV, updateCV, deleteCV, setDefaultCV,
+      addLetter, updateLetter, deleteLetter, setDefaultLetter,
+      updateFilters, resetFilters,
+      addApplication, updateApplication, deleteApplication, setStatus, markSent, isQueuedOrApplied,
+      updateCampaign, resetSentToday,
+      resetAll,
+    }),
+    [
+      profile, ai, cvs, letters, filters, applications, campaign, loaded,
+      updateProfile, updateAI,
+      addCV, updateCV, deleteCV, setDefaultCV,
+      addLetter, updateLetter, deleteLetter, setDefaultLetter,
+      updateFilters, resetFilters,
+      addApplication, updateApplication, deleteApplication, setStatus, markSent, isQueuedOrApplied,
+      updateCampaign, resetSentToday,
+      resetAll,
+    ]
   );
+
+  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
 
 export function useData() {

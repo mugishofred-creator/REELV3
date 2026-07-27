@@ -1,12 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const STORAGE_KEYS = {
-  stock: "vm:stock",
-  ventes: "vm:ventes",
-  clients: "vm:clients",
-  retours: "vm:retours",
-  niches: "vm:niches",
-  goals: "vm:goals",
+  profile: "jp:profile",
+  ai: "jp:ai",
+  cvs: "jp:cvs",
+  letters: "jp:letters",
+  filters: "jp:filters",
+  applications: "jp:applications",
+  campaign: "jp:campaign",
 };
 
 export async function loadJSON<T>(key: string, fallback: T): Promise<T> {

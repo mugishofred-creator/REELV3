@@ -35,73 +35,61 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Pilote",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "grid" : "grid-outline"} color={color} size={18} />
+              <Ionicons name={focused ? "rocket" : "rocket-outline"} color={color} size={18} />
             </View>
           ),
-          tabBarButtonTestID: "tab-dashboard",
+          tabBarButtonTestID: "tab-pilote",
         }}
       />
       <Tabs.Screen
-        name="stock"
+        name="offres"
         options={{
-          title: "Stock",
+          title: "Offres",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "shirt" : "shirt-outline"} color={color} size={18} />
+              <Ionicons name={focused ? "briefcase" : "briefcase-outline"} color={color} size={18} />
             </View>
           ),
-          tabBarButtonTestID: "tab-stock",
+          tabBarButtonTestID: "tab-offres",
         }}
       />
       <Tabs.Screen
-        name="ventes"
+        name="campagne"
         options={{
-          title: "Ventes",
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name="trending-up" color={color} size={18} />
-            </View>
-          ),
-          tabBarButtonTestID: "tab-ventes",
-        }}
-      />
-      <Tabs.Screen
-        name="action"
-        options={{
-          title: "Action",
+          title: "Campagne",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
               <Ionicons name={focused ? "flash" : "flash-outline"} color={color} size={18} />
             </View>
           ),
-          tabBarButtonTestID: "tab-action",
+          tabBarButtonTestID: "tab-campagne",
         }}
       />
       <Tabs.Screen
-        name="sniper"
+        name="suivi"
         options={{
-          title: "Sniper",
+          title: "Suivi",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "locate" : "locate-outline"} color={color} size={18} />
+              <Ionicons name={focused ? "trending-up" : "trending-up-outline"} color={color} size={18} />
             </View>
           ),
-          tabBarButtonTestID: "tab-sniper",
+          tabBarButtonTestID: "tab-suivi",
         }}
       />
       <Tabs.Screen
-        name="plus"
+        name="profil"
         options={{
-          title: "Plus",
+          title: "Profil",
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Ionicons name={focused ? "apps" : "apps-outline"} color={color} size={18} />
+              <Ionicons name={focused ? "person" : "person-outline"} color={color} size={18} />
             </View>
           ),
-          tabBarButtonTestID: "tab-plus",
+          tabBarButtonTestID: "tab-profil",
         }}
       />
     </Tabs>
@@ -134,7 +122,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tabBar,
   },
   label: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.3,
     marginTop: 1,
