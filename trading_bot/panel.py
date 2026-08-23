@@ -32,7 +32,7 @@ import pandas as pd
 
 from . import data as data_module
 from . import evaluate, features, labels, model
-from .config import Config
+from .config import BacktestConfig, Config
 
 logger = logging.getLogger(__name__)
 
@@ -319,3 +319,59 @@ def portfolio_backtest(
         equity=equity,
         per_asset=stats.sort_values("sharpe", ascending=False),
     )
+
+
+def lag_robustness(
+    panel: Panel, predictions: pd.DataFrame, cfg: Config,
+    lags: tuple[int, ...] = (1, 2, 3), rates: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Le résultat survit-il à une barre d'exécution supplémentaire ?
+
+    **C'est le contrôle le plus important de tout le projet, et il est fatal.**
+
+    Un prix de clôture n'est pas une valeur exacte : c'est un print entaché de
+    bruit — rebond entre bid et ask, cotation périmée, horodatage flottant selon
+    le fournisseur. Ce bruit crée une autocorrélation négative purement
+    artificielle : quand la clôture enregistrée est trop basse par accident, la
+    suivante « revient », et une stratégie de retour à la moyenne encaisse un
+    profit qui n'existe que dans les données. On ne peut pas traiter à un prix
+    erroné.
+
+    Le test : décaler l'exécution d'une barre de plus. Un effet économique réel,
+    qui se déploie sur plusieurs jours, en perd une partie. Un artefact de
+    microstructure, lui, **disparaît intégralement** — tout son rendement est
+    concentré sur le premier print après le signal.
+
+    Mesuré sur ce dépôt, données Yahoo, panier FX : Sharpe +3.69 à lag=1,
+    **−0.79 à lag=2**. Verdict sans appel — et confirmé par le fournisseur : la
+    même paire EUR/USD affiche une autocorrélation lag-1 de −0.0240 chez Yahoo
+    contre −0.0050 chez Alpha Vantage, pour des clôtures qui diffèrent de 9 pips
+    en médiane.
+
+    Règle de lecture : **si le Sharpe s'effondre entre lag=1 et lag=2, le
+    résultat n'est pas tradable**, quelle que soit sa beauté.
+    """
+    rows = []
+    for lag in lags:
+        variant = Config(
+            data=cfg.data, label=cfg.label, split=cfg.split, model=cfg.model,
+            backtest=BacktestConfig(
+                spread_bps=cfg.backtest.spread_bps,
+                execution_lag=lag,
+                edge_threshold=cfg.backtest.edge_threshold,
+                max_position=cfg.backtest.max_position,
+                initial_balance=cfg.backtest.initial_balance,
+            ),
+        )
+        result = portfolio_backtest(panel, predictions, variant, rates=rates)
+        rows.append({"lag": lag, "sharpe": round(result.sharpe, 3),
+                     "annualisé": round(result.annualised, 4),
+                     "rendement": round(result.total_return, 4)})
+
+    table = pd.DataFrame(rows).set_index("lag")
+    reference = table.loc[lags[0], "sharpe"]
+    survivor = table.loc[lags[1], "sharpe"] if len(lags) > 1 else reference
+    # Un effet réel conserve une fraction substantielle de son Sharpe ; un
+    # artefact de microstructure passe en négatif ou s'annule.
+    table.attrs["tradable"] = bool(reference > 0 and survivor > 0.5 * reference)
+    return table

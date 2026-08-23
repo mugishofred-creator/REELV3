@@ -134,3 +134,69 @@ def test_costs_are_reported_not_silently_swallowed(random_walk_universe):
     assert free.total_costs == 0.0
     assert costly.total_costs > 0.0
     assert costly.total_return < free.total_return
+
+
+def test_lag_robustness_flags_a_microstructure_artefact(monkeypatch):
+    """Une série dont la clôture est bruitée produit un edge de retour à la
+    moyenne **entièrement faux**. Le contrôle de décalage doit le détecter.
+
+    C'est le scénario qui a invalidé le résultat le plus prometteur de ce dépôt :
+    Sharpe +3.69 à lag=1, −0.79 à lag=2. Le test verrouille la détection.
+    """
+    rng = np.random.default_rng(11)
+    n = 1400
+    # Prix « vrai » : marche aléatoire pure, aucun effet exploitable.
+    true_price = 100 * np.exp(np.cumsum(rng.normal(0, 0.006, n)))
+    # Print observé : le vrai prix plus un bruit indépendant — exactement le
+    # rebond bid-ask. Il crée une autocorrélation négative artificielle.
+    # Bruit volontairement plus marqué que le cas réel (Yahoo : autocorr −0.024)
+    # pour que le test soit sans ambiguïté.
+    observed = true_price * (1 + rng.normal(0, 0.004, n))
+
+    index = pd.bdate_range("2015-01-01", periods=n)
+    frame = pd.DataFrame(
+        {"open": observed, "high": observed * 1.002, "low": observed * 0.998,
+         "close": observed, "volume": 0.0},
+        index=index,
+    )
+    returns = pd.Series(np.log(observed)).diff().dropna()
+    assert returns.autocorr(1) < -0.1, "le montage doit bien produire du bounce"
+
+    series = {f"NOISY{i}": frame for i in range(4)}
+    monkeypatch.setattr(panel.data_module, "load", lambda cfg: series[cfg.symbol])
+
+    cfg = _config(kind="direction", horizon=1)
+    pan = panel.build_panel(list(series), cfg, include_slow=False)
+    predictions = panel.walk_forward(pan, cfg)
+
+    table = panel.lag_robustness(pan, predictions, cfg)
+    assert list(table.index) == [1, 2, 3]
+    # Le rendement doit être concentré sur la première barre, donc s'effondrer.
+    assert table.loc[2, "sharpe"] < 0.5 * table.loc[1, "sharpe"]
+    assert table.attrs["tradable"] is False
+
+
+def test_lag_robustness_accepts_a_persistent_effect(monkeypatch):
+    """Contrôle symétrique : un effet qui se déploie sur plusieurs jours doit
+    être accepté, sinon le garde-fou rejetterait aussi les vrais signaux."""
+    rng = np.random.default_rng(12)
+    n = 1400
+    # Tendance lente et persistante : le signal reste valable plusieurs barres.
+    drift = pd.Series(rng.normal(0, 0.004, n)).rolling(30, min_periods=1).mean()
+    price = 100 * np.exp(np.cumsum(drift.to_numpy() * 3))
+    index = pd.bdate_range("2015-01-01", periods=n)
+    frame = pd.DataFrame(
+        {"open": price, "high": price * 1.003, "low": price * 0.997,
+         "close": price, "volume": 0.0},
+        index=index,
+    )
+    series = {f"TREND{i}": frame for i in range(4)}
+    monkeypatch.setattr(panel.data_module, "load", lambda cfg: series[cfg.symbol])
+
+    cfg = _config(kind="direction", horizon=1)
+    pan = panel.build_panel(list(series), cfg, include_slow=False)
+    table = panel.lag_robustness(pan, panel.walk_forward(pan, cfg), cfg)
+
+    assert table.loc[1, "sharpe"] > 0
+    assert table.loc[2, "sharpe"] > 0.5 * table.loc[1, "sharpe"]
+    assert table.attrs["tradable"] is True

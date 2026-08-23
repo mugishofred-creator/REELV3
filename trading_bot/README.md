@@ -1,5 +1,17 @@
 # Probabilité calibrée d'un mouvement de marché
 
+> ### ⚠️ Conclusion du projet : la stratégie directionnelle n'est PAS tradable
+>
+> Le résultat le plus prometteur — Sharpe 3,69 sur un panier FX — s'est révélé
+> être un **artefact de microstructure**. Il s'effondre à −0,79 dès qu'on
+> décale l'exécution d'une seule barre : tout le rendement était concentré sur
+> le premier print après le signal, c'est-à-dire sur du bruit de clôture qu'on
+> ne peut pas traiter. Voir la section 3 quinquies.
+>
+> Ce qui reste solide : la **méthodologie** (probabilités calibrées, walk-forward
+> purgé, contrôles négatifs), et l'événement `amplitude`, qui ne dépend pas de
+> ce mécanisme.
+
 Estimation de **P(mouvement)** à partir de plusieurs indicateurs, avec la seule
 chose qui rende ce nombre exploitable : une mesure de sa qualité face à une
 baseline honnête.
@@ -270,6 +282,83 @@ c'est **2020-2021**, où les coûts d'exécution mangent la moitié du brut.
 python -m trading_bot --panel --spread-bps 2      # financement inclus par défaut
 python -m trading_bot --panel --no-funding        # pour comparer
 ```
+
+## 3 quinquies. Le contrôle qui a tout invalidé
+
+Après le passage au panel, le résultat était très beau. En retirant les actifs
+hors FX — dont le Sharpe était négatif dans **deux univers disjoints**, ce qui
+justifiait l'ablation — on obtenait :
+
+| Univers | AUC | Skill | Folds + | Sharpe @2bps | Annualisé |
+|---|---|---|---|---|---|
+| A, FX (6 paires) | 0,5558 | +0,0124 | 6/6 | **+3,69** | +13,4 % |
+| B, FX (4 paires, **jamais vues**) | 0,5441 | +0,0085 | 5/6 | **+2,98** | +10,8 % |
+
+Ça répliquait sur un univers hors-échantillon. Ça passait tous les contrôles
+négatifs. Un Sharpe de 3,7 sur du FX quotidien — c'est précisément ce qui aurait
+dû déclencher la méfiance, et le coefficient dominant la désignait : `ret_1` à
+−0,19, soit du retour à la moyenne à un jour. **La signature exacte du bid-ask
+bounce.**
+
+### Le test
+
+Un prix de clôture n'est pas une valeur exacte : c'est un print entaché de bruit
+— rebond entre bid et ask, cotation périmée, horodatage flottant. Ce bruit crée
+une autocorrélation négative **purement artificielle** : quand la clôture
+enregistrée est trop basse par accident, la suivante « revient », et une
+stratégie de retour à la moyenne encaisse un profit qui n'existe que dans les
+données. On ne peut pas traiter à un prix erroné.
+
+Un effet économique réel se déploie sur plusieurs jours et survit partiellement
+à une barre de retard. Un artefact disparaît intégralement :
+
+| Univers | lag=1 | **lag=2** | lag=3 |
+|---|---|---|---|
+| A, FX (6 paires) | +3,69 | **−0,79** | −0,48 |
+| B, FX (4 paires) | +2,98 | **−0,32** | −0,26 |
+
+Sans appel.
+
+### La confirmation par le fournisseur
+
+Même paire EUR/USD, deux sources indépendantes :
+
+| Source | Autocorrélation lag-1 | lag-2 |
+|---|---|---|
+| Yahoo | **−0,0240** | −0,0010 |
+| Alpha Vantage | −0,0050 | +0,0005 |
+
+Un facteur 5 d'écart sur la même paire, la même période. Et les deux clôtures
+diffèrent de **9 pips en médiane** (29 en moyenne), pour un mouvement quotidien
+typique de 61 pips. Les fournisseurs ne cotent tout simplement pas la même
+clôture — et le modèle apprenait le bruit de l'un d'eux.
+
+### Pourquoi le test hors-univers ne l'avait pas vu
+
+Parce que les univers A et B partagent **le même fournisseur de données**. Une
+validation croisée entre actifs ne peut rien contre un biais commun à la source.
+C'est la limite structurelle de ce type de test, et elle mérite d'être retenue :
+*généraliser* n'est pas *être réel*.
+
+### Le garde-fou, désormais systématique
+
+`lag_robustness()` tourne à chaque exécution de `--panel` et affiche un verdict
+explicite. Deux tests le verrouillent dans les deux sens : il doit rejeter un
+artefact simulé, et accepter un effet persistant simulé.
+
+```
+--- ROBUSTESSE AU DÉCALAGE D'EXÉCUTION ---
+     sharpe  annualisé  rendement
+lag
+1     1.014     0.0255     0.9624
+2    -0.773    -0.0179    -0.3828
+3    -0.368    -0.0090    -0.2149
+
+>>> ALERTE : le résultat s'effondre dès qu'on saute une barre. NON TRADABLE.
+```
+
+**Règle générale : si le Sharpe ne survit pas au décalage, le résultat n'existe
+pas, quelle que soit sa beauté.**
 
 ## 4. Évaluer une probabilité, pas une décision
 

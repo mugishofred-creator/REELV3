@@ -109,6 +109,21 @@ def _run_panel(cfg: Config, args) -> int:
     print(report.to_text())
     print("\n--- PORTEFEUILLE (parité de risque) " + "-" * 36)
     print(result.to_text())
+
+    # Contrôle de microstructure : systématique, jamais optionnel. C'est le
+    # test qui distingue un edge tradable d'un artefact du prix de clôture.
+    print("\n--- ROBUSTESSE AU DÉCALAGE D'EXÉCUTION " + "-" * 33)
+    robustness = panel.lag_robustness(pan, predictions, cfg, rates=rate_table)
+    print(robustness.to_string())
+    if robustness.attrs["tradable"]:
+        print("\n>>> Le résultat survit à une barre supplémentaire : plausiblement "
+              "tradable.")
+    else:
+        print("\n>>> ALERTE : le résultat s'effondre dès qu'on saute une barre.")
+        print("    Tout le rendement est concentré sur le premier print après le "
+              "signal —")
+        print("    c'est la signature du bruit de clôture (bid-ask bounce, cotation")
+        print("    périmée), pas d'un effet exploitable. NON TRADABLE.")
     if not report.has_skill:
         print("\nATTENTION : sans skill, les chiffres de portefeuille sont du bruit.")
     return 0 if report.has_skill else 2

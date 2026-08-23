@@ -39,6 +39,7 @@ BIS_URL = "https://stats.bis.org/api/v2/data/dataflow/BIS/WS_CBPOL/1.0/D.{area}?
 AREA_BY_CURRENCY = {
     "USD": "US", "EUR": "XM", "GBP": "GB",
     "JPY": "JP", "CHF": "CH", "CAD": "CA", "AUD": "AU",
+    "NZD": "NZ", "SEK": "SE", "NOK": "NO", "MXN": "MX",
 }
 
 #: Symbole Yahoo -> (devise de base, devise de cotation).
@@ -53,6 +54,10 @@ FX_PAIRS = {
     "JPY=X": ("USD", "JPY"),
     "CHF=X": ("USD", "CHF"),
     "CAD=X": ("USD", "CAD"),
+    "NZDUSD=X": ("NZD", "USD"),
+    "SEK=X": ("USD", "SEK"),
+    "NOK=X": ("USD", "NOK"),
+    "MXN=X": ("USD", "MXN"),
 }
 
 #: Actifs non-FX : une position longue est financée en dollars (on emprunte),
