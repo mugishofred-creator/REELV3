@@ -1073,3 +1073,94 @@ Bilan de crise, à comparer honnêtement :
 
 La vol ciblée **achète** de la protection (−35,5 % → −23,8 %) en payant du
 rendement, pour un ratio inchangé. Elle ne crée rien : elle échange.
+
+
+---
+
+## 17. Intraday : le risque y est prévisible, l'edge non
+
+L'intuition testée : *l'intraday serait le seul terrain où la gestion du risque
+peut créer un alpha*. Elle contient un fait remarquable et une erreur.
+
+### L'erreur
+
+Le théorème d'arrêt optionnel **ne dépend pas de la fréquence**. Si le prix est
+une martingale, aucune règle d'arrêt ni de dimensionnement ne déplace
+l'espérance — en 5 minutes pas plus qu'en quotidien (section 10). Descendre en
+fréquence multiplie le nombre de paris à espérance nulle, et les frais avec.
+
+### Le fait, et il est spectaculaire
+
+| | R² de \|rendement\| expliqué |
+|---|---|
+| **Intraday**, par la seule heure de la journée | **0,3093** |
+| Quotidien, par le jour de la semaine | 0,0047 |
+
+**Un facteur 66.** Sur SPY en barres de 5 minutes, la volatilité à l'ouverture
+vaut 17,9 bps contre 5,4 bps à 13h30 — un rapport de 2,86. Le risque intraday
+est effectivement d'un tout autre ordre de prévisibilité. Sur ce point,
+l'intuition est vérifiée sans réserve.
+
+### Mais connaître le risque ne suffit pas
+
+Il faut que le **rapport rendement/risque** varie selon l'heure. Sinon réduire
+l'exposition quand la volatilité est haute réduit le rendement dans la même
+proportion, et le ratio ne bouge pas.
+
+10 ETF, barres horaires, 2023-2026 :
+
+| Heure | Rendement (bps) | Vol (bps) | **Ratio** | t-stat |
+|---|---|---|---|---|
+| 9h | 5,481 | 98,3 | 0,0558 | **4,76** |
+| 10h | −0,016 | 35,7 | −0,0005 | −0,04 |
+| 11h | 0,726 | 29,0 | 0,0250 | 2,14 |
+| 12h | −0,118 | 32,6 | −0,0036 | −0,31 |
+| **13h** | 1,239 | 28,0 | **0,0442** | 3,78 |
+| 14h | −0,056 | 25,4 | −0,0022 | −0,19 |
+| 15h | 0,095 | 22,1 | 0,0043 | 0,36 |
+
+Le ratio varie bel et bien. Mais sept créneaux, c'est sept tests : le seuil de
+Bonferroni est à **3,8**, et **seule la barre de 9h le franchit** — celle du gap
+overnight, déjà identifiée en section 12 comme réelle et incapturable. 13h
+retombe à 3,78, juste en dessous.
+
+### L'exploitation coûte plus qu'elle ne rapporte
+
+| Stratégie | Annualisé | Sharpe | Transactions/an | t-stat |
+|---|---|---|---|---|
+| **Détenu en permanence** | **+19,19 %** | **1,40** | **0** | +2,45 |
+| 13h seule (0 bp) | +3,04 % | 0,88 | 503 | +1,48 |
+| 13h seule (0,5 bp) | +0,48 % | 0,15 | 503 | +0,26 |
+| 13h seule (1 bp) | −2,02 % | −0,57 | 503 | −0,97 |
+| 13h seule (2 bps) | −6,83 % | −2,02 | 503 | −3,39 |
+
+**Même sans aucun frais, ne détenir que le meilleur créneau fait moins bien que
+détenir en permanence** (0,88 contre 1,40). Et la stratégie devient perdante dès
+1 bp par côté. Ajoutons que l'effet de 13h est instable — quatre trimestres
+négatifs sur douze, aucun individuellement significatif — et que sa
+concentration temporelle ressort en *événement unique* (10 journées = 103 % du
+gain).
+
+Enfin, ces données ne couvrent que **trois ans de marché haussier**. C'est trop
+court pour conclure autre chose que le négatif.
+
+### Deux bugs trouvés en chemin
+
+**Un `NaN` faisait retourner exactement `0.0`** à `newey_west_tstat` — pas
+`NaN`, zéro. La variance devenait `NaN`, la garde `variance > 0` était fausse,
+et la fonction renvoyait un zéro silencieux. Une série de 5 081 barres
+contenant **un seul** `NaN` donnait 0,00 au lieu de 2,45. Un échec silencieux
+dans le sens « non significatif » est la pire direction possible pour un outil
+de recherche : il masque un vrai résultat au lieu de lever une alerte. La
+fonction renvoie désormais `NaN` quand elle ne peut pas calculer.
+
+**`hourly_profile` levait un `KeyError`** sur un échantillon trop court, au lieu
+de signaler la vraie cause. Les deux sont verrouillés par des tests.
+
+### Conclusion
+
+L'intraday offre une connaissance du risque incomparablement meilleure. Il
+n'offre pas de rendement supplémentaire pour la payer. C'est exactement le
+même schéma que l'effet nuit : **une régularité réelle dont les coûts de
+transaction absorbent précisément le gain** — et c'est probablement la raison
+pour laquelle elle survit.

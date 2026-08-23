@@ -65,6 +65,35 @@ def test_newey_west_is_more_conservative_than_a_naive_tstat():
     assert abs(corrected) < abs(naive)
 
 
+def test_newey_west_ignores_non_finite_values():
+    """Régression : un seul NaN renvoyait exactement 0.0, pas NaN.
+
+    Un échec silencieux dans le sens « non significatif » est la pire direction
+    possible — il masque un vrai résultat. Mesuré sur données réelles : une
+    série de 5 081 barres contenant un seul NaN renvoyait 0.00 au lieu de 2.45.
+    """
+    rng = np.random.default_rng(21)
+    clean = pd.Series(rng.normal(0.0008, 0.01, 2000))
+    reference = carry.newey_west_tstat(clean, lags=7)
+    assert abs(reference) > 2
+
+    polluted = clean.copy()
+    polluted.iloc[0] = np.nan
+    polluted.iloc[500] = np.inf
+    contaminated = carry.newey_west_tstat(polluted, lags=7)
+
+    assert np.isfinite(contaminated)
+    assert contaminated != 0.0
+    assert abs(contaminated - reference) < 0.2      # les deux valeurs écartées
+
+
+def test_newey_west_returns_nan_when_it_cannot_compute():
+    """Échec explicite plutôt que zéro trompeur."""
+    assert np.isnan(carry.newey_west_tstat(pd.Series([np.nan] * 50), lags=7))
+    assert np.isnan(carry.newey_west_tstat(pd.Series([0.01, 0.02]), lags=7))
+    assert np.isnan(carry.newey_west_tstat(pd.Series([0.0] * 100), lags=7))
+
+
 def test_newey_west_detects_a_genuinely_strong_mean():
     rng = np.random.default_rng(5)
     strong = pd.Series(rng.normal(0.002, 0.005, 2000))

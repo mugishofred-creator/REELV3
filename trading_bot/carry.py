@@ -92,12 +92,27 @@ def newey_west_tstat(returns: pd.Series, lags: int = 21) -> float:
     distinguable de la chance.
     """
     values = returns.to_numpy(dtype=float)
-    n = len(values)
-    variance = float((values**2).sum())
+
+    # Une seule valeur non finie contaminait toute la somme : la variance
+    # devenait NaN, la garde ``variance > 0`` était fausse, et la fonction
+    # renvoyait **exactement 0.0**. Un échec silencieux dans le sens « rien à
+    # signaler » est la pire direction possible pour un outil de recherche — il
+    # masque un vrai résultat au lieu de lever une alerte. Mesuré : une série de
+    # 5 081 barres contenant 1 NaN renvoyait 0.00 au lieu de 2.45.
+    finite = values[np.isfinite(values)]
+    if len(finite) < lags + 2:
+        return float("nan")
+
+    n = len(finite)
+    variance = float((finite**2).sum())
     for lag in range(1, lags + 1):
         weight = 1 - lag / (lags + 1)
-        variance += 2 * weight * float((values[lag:] * values[:-lag]).sum())
-    return float(values.mean() * n / np.sqrt(variance)) if variance > 0 else 0.0
+        variance += 2 * weight * float((finite[lag:] * finite[:-lag]).sum())
+    # Variance négative possible avec Newey-West sur de petits échantillons :
+    # on renvoie NaN plutôt qu'un zéro trompeur.
+    if not np.isfinite(variance) or variance <= 0:
+        return float("nan")
+    return float(finite.mean() * n / np.sqrt(variance))
 
 
 def alpha_tstat(strategy: pd.Series, benchmark: pd.Series, lags: int = 21) -> dict:
