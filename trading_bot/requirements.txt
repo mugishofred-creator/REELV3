@@ -1,0 +1,9 @@
+# Volontairement minimal. Le bot d'origine importait TensorFlow, XGBoost,
+# LightGBM, CatBoost, hmmlearn, pywt et nolds pour un signal que rien ne
+# mesurait. Ici scikit-learn suffit : le facteur limitant n'est pas la capacité
+# du modèle, c'est la quantité de signal dans les données.
+numpy>=1.26
+pandas>=2.1
+scikit-learn>=1.4
+requests>=2.31
+pytest>=8.0
