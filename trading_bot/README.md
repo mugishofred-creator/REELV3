@@ -576,3 +576,72 @@ votre horizon. Le mode est un point de départ documenté, pas un conseil.
 ```bash
 python -m trading_bot --allocation --spread-bps 2
 ```
+
+
+---
+
+## 11. Journal de recherche : sept pistes, un seul résultat significatif
+
+Recherche systématique d'un edge, chaque piste soumise aux mêmes contrôles —
+walk-forward purgé, coûts réels, décalage d'exécution, t-stat de Newey-West
+corrigée du chevauchement des rendements.
+
+| Piste | Signal réel ? | Robuste au décalage ? | t-stat | Verdict |
+|---|---|---|---|---|
+| Directionnel quotidien, panel 10 actifs | Apparent | **Non** (+3,69 → −0,79) | — | Artefact de microstructure |
+| **Volatilité (`amplitude`)** | **Oui**, AUC 0,816 | **Oui** (0,816 → 0,805) | — | Réel, mais non monétisable |
+| Prévision de vol pour dimensionner | R² 0,576 vs 0,456 | — | — | Dégrade le portefeuille |
+| Momentum ETF sectoriels/pays | Oui, Sharpe 0,674 | Oui (0,674 → 0,620) | +3,41 | Gain en drawdown seulement |
+| Momentum actions (116 titres) | Alpha +3,95 %/an | Oui (0,966 → 0,941) | **+1,32** | Non significatif |
+| Carry FX (10 devises) | Sharpe 0,29 | — | **+1,46** | Non significatif |
+| Combinaison des trois briques | — | — | +3,53 | Aucun gain matériel |
+
+### Ce que chaque échec a appris
+
+**La volatilité est réellement prédictible** — c'est le seul signal du projet à
+passer tous les contrôles avec une marge confortable (AUC 0,816, stable jusqu'à
+5 barres de décalage). Mais mieux la prévoir **dégrade** le portefeuille :
+Sharpe 0,847 contre 0,902 pour une simple fenêtre glissante. Le gain de
+précision porte sur des changements de régime brefs, dont l'exploitation coûte
+plus en turnover qu'elle ne rapporte. *Un meilleur R² qui ne se traduit pas dans
+le portefeuille ne vaut rien.*
+
+**Le momentum sur actions** donne un alpha de +3,95 %/an contre le même univers
+équipondéré — mais un t-stat de 1,32 après correction de Newey-White. Sur les
+sous-périodes, il sous-performe dans 3 périodes sur 4 ; tout le résultat vient
+de 2022-2026. Et l'univers lui-même souffre du **biais du survivant** : 116
+sociétés encore grandes aujourd'hui, remontées jusqu'en 2009. La référence
+équipondérée partage ce biais, ce qui neutralise l'essentiel — mais pas tout.
+
+**Le carry FX** confirme la littérature : le classement par différentiel de taux
+rapporte (+2,9 %/an) là où le panier équipondéré de devises perd (−0,9 %/an). La
+prime existe donc bien. Elle est simplement trop faible pour être distinguable
+du bruit — Sharpe 0,29 pour −37 % de drawdown, exactement le profil d'une prime
+payée pour porter un risque de krach.
+
+**La combinaison ne sauve rien.** Allocation et momentum sont corrélés à 0,76 :
+ce sont deux façons de porter la même prime actions, pas deux paris. Le carry
+est bien décorrélé (0,18) mais son espérance n'est pas établie. Meilleur mélange
+obtenu : Sharpe 0,835 contre 0,822 pour l'allocation seule — du bruit.
+
+### Le seul résultat statistiquement significatif
+
+| | Annualisé | Sharpe | DD max | **t-stat** |
+|---|---|---|---|---|
+| **Allocation (parité de risque + vol ciblée)** | **+9,00 %** | 0,822 | −22,0 % | **+3,59** |
+| Allocation + momentum | +8,34 % | 0,812 | **−18,6 %** | **+3,76** |
+
+Et il ne s'agit pas d'un edge sur le marché : c'est la **prime de risque
+elle-même**, correctement récoltée. Le t-stat de 3,59 dit que porter du risque
+diversifié paie — pas qu'on sait prédire quoi que ce soit.
+
+### Conclusion
+
+Sept pistes, des contrôles identiques et sévères sur chacune. Les deux signaux
+réellement présents dans les données — la volatilité et le classement par
+momentum — **réduisent le risque sans augmenter le rendement**. Aucune
+prédiction directionnelle n'a survécu.
+
+C'est convergent avec quarante ans de littérature, et c'est la réponse honnête à
+la question posée : sur des données quotidiennes publiques, avec des coûts
+réalistes, l'edge exploitable est le contrôle du risque, pas la prévision.
