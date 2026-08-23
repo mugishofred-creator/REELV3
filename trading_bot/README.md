@@ -201,6 +201,76 @@ résultat sur données réelles vient des données, pas de la mécanique.
 Testé aussi, sans succès : h=5 (skill −0.0002, 2 folds sur 6) et h=21
 (+0.0007, 3 sur 6). L'edge est concentré sur l'horizon quotidien.
 
+## 3 quater. Le financement overnight : mesuré, et négligeable ici
+
+Dernier biais optimiste du backtest. Avec une détention d'environ deux jours et
+27 % d'exposition, le swap s'applique à presque chaque trade — le risque étant
+qu'une stratégie prenant structurellement le même côté sur une devise à taux bas
+paie le différentiel jour après jour.
+
+Source : **BIS `WS_CBPOL`**, taux directeur quotidien de chaque banque centrale
+depuis 2005, sans clé d'API, taux négatifs inclus (−0,75 % en CHF, −0,10 % en
+JPY). Convention, pour une position longue de BASE/QUOTE :
+
+```
+carry annualisé = taux_BASE − taux_QUOTE       # long EUR/USD : perçoit EUR, paie USD
+coût            = position × carry × jours_calendaires / 365
+```
+
+Le prorata suit les jours **calendaires** : vendredi → lundi porte trois jours,
+pas un. Et attention, `JPY=X`, `CHF=X`, `CAD=X` sont des paires **USD/xxx** —
+inverser le sens inverserait le carry sur trois des six paires.
+
+### Le résultat
+
+| Coût/côté | Sans financement | Avec financement |
+|---|---|---|
+| 1 bp | +111,5 % · Sharpe 1,28 | +111,7 % · Sharpe 1,28 |
+| 2 bps | +85,7 % · Sharpe 1,06 | +85,9 % · Sharpe 1,06 |
+| 5 bps | +25,8 % · Sharpe 0,40 | +25,9 % · Sharpe 0,40 |
+
+**Financement cumulé sur 16 ans : +0,07 %.** Contre 26 % de coûts d'exécution.
+Un facteur 370.
+
+### Pourquoi — et pourquoi ce n'est pas généralisable
+
+Parce que la stratégie est **symétrique**. Elle est mean-reverting : elle prend
+les deux côtés à parts quasi égales, donc le carry s'annule.
+
+| | Position moyenne signée | Position moyenne \|absolue\| | % de jours long |
+|---|---|---|---|
+| EUR/USD | +0,0007 | 0,301 | 47,9 % |
+| USD/JPY | −0,0174 | 0,313 | 46,4 % |
+| GBP/USD | −0,0033 | 0,242 | 48,2 % |
+
+Biais net moyen sur le panier : **0,029** (0 = symétrique, 1 = toujours le même
+côté). Le financement est négligeable **par conséquence de la nature du signal**,
+pas par chance. Une stratégie de trend-following ou de carry, qui tiendrait des
+positions directionnelles pendant des mois, verrait un résultat radicalement
+différent — et le module est là pour le mesurer.
+
+### Par régime de taux
+
+Le différentiel moyen varie d'un facteur 5 entre 2020-21 et 2022-26. Le
+financement ne bouge pas pour autant.
+
+| Période | \|Δtaux\| moyen | Brut | Exécution | Financement | **Net** | Sharpe |
+|---|---|---|---|---|---|---|
+| 2010-2014 | 0,91 % | +0,96 % | −0,30 % | −0,00 % | **+0,65 %** | 0,93 |
+| 2015-2019 | 1,03 % | +5,56 % | −1,65 % | +0,01 % | **+3,85 %** | 1,16 |
+| 2020-2021 (taux zéro) | 0,34 % | +3,50 % | −1,68 % | −0,01 % | **+1,77 %** | 0,58 |
+| 2022-2026 (cycle de hausse) | 1,73 % | +5,10 % | −1,12 % | +0,00 % | **+3,94 %** | 1,57 |
+
+(annualisé, coût d'exécution à 2 bps/côté)
+
+La stratégie tient dans les quatre régimes. Le point faible n'est pas le carry :
+c'est **2020-2021**, où les coûts d'exécution mangent la moitié du brut.
+
+```bash
+python -m trading_bot --panel --spread-bps 2      # financement inclus par défaut
+python -m trading_bot --panel --no-funding        # pour comparer
+```
+
 ## 4. Évaluer une probabilité, pas une décision
 
 `classification_report` juge un choix binaire après seuillage ; il ne dit rien

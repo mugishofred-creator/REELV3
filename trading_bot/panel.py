@@ -190,6 +190,7 @@ class PortfolioResult:
     hit_rate: float
     exposure: float
     total_costs: float
+    total_carry: float
     final_balance: float
     equity: pd.Series
     per_asset: pd.DataFrame
@@ -204,7 +205,9 @@ class PortfolioResult:
             f"{'Drawdown max':<18}: {self.max_drawdown:.2%}",
             f"{'Taux de réussite':<18}: {self.hit_rate:.2%}",
             f"{'Exposition moyenne':<18}: {self.exposure:.2%}",
-            f"{'Coûts cumulés':<18}: {self.total_costs:.2%}",
+            f"{'Coûts exécution':<18}: {self.total_costs:.2%}",
+            f"{'Financement':<18}: {self.total_carry:+.2%}"
+            + ("" if self.total_carry else "   (non modélisé)"),
             f"{'Capital final':<18}: {self.final_balance:,.0f}",
             "",
             "Contribution par actif :",
@@ -214,7 +217,8 @@ class PortfolioResult:
 
 
 def portfolio_backtest(
-    panel: Panel, predictions: pd.DataFrame, cfg: Config, vol_target: float = 0.10
+    panel: Panel, predictions: pd.DataFrame, cfg: Config, vol_target: float = 0.10,
+    rates: pd.DataFrame | None = None,
 ) -> PortfolioResult:
     """Portefeuille équipondéré en *risque*, pas en capital.
 
@@ -225,13 +229,21 @@ def portfolio_backtest(
       fois plus volatil qu'EUR/USD, dicter la totalité du résultat. Chaque
       position est donc divisée par sa volatilité récente (connue à la date de
       décision) et visée à ``vol_target`` annualisé.
+    - **Financement overnight.** Passer ``rates`` ajoute le portage réellement
+      encouru : pour une paire BASE/QUOTE, une position longue perçoit
+      ``taux_BASE − taux_QUOTE`` au prorata des jours calendaires écoulés, et
+      une position courte le paie. C'était le dernier biais optimiste du
+      backtest — avec une détention d'environ deux jours, il s'applique à
+      presque chaque trade.
     - **La diversification est le produit fini.** L'intérêt de mutualiser n'est
       pas de mieux prédire chaque actif, c'est d'additionner des paris peu
       corrélés. Le tableau par actif montre qui porte réellement le résultat.
     """
     from .backtest import TRADING_DAYS, position_from_probability
 
-    per_asset_returns, per_asset_stats, costs = {}, [], {}
+    from . import rates as rates_module
+
+    per_asset_returns, per_asset_stats, costs, carries = {}, [], {}, {}
 
     for symbol, group in predictions.groupby("symbol"):
         prices = panel.prices[symbol]
@@ -254,7 +266,20 @@ def portfolio_backtest(
         net = position * bar_return.reindex(window.index).fillna(0.0)
         net = net - turnover * (cfg.backtest.spread_bps / 10_000.0)
 
+        # Financement : appliqué à la position effectivement détenue sur la même
+        # période que le rendement, donc aucun décalage supplémentaire.
+        if rates is not None:
+            try:
+                carry = position * rates_module.daily_carry(symbol, window.index, rates)
+            except rates_module.RatesError as exc:
+                logger.warning("%s : financement non appliqué (%s)", symbol, exc)
+                carry = pd.Series(0.0, index=window.index)
+        else:
+            carry = pd.Series(0.0, index=window.index)
+
+        net = net + carry
         costs[symbol] = turnover * (cfg.backtest.spread_bps / 10_000.0)
+        carries[symbol] = carry
         per_asset_returns[symbol] = net
         per_asset_stats.append(
             {
@@ -262,6 +287,7 @@ def portfolio_backtest(
                 "rendement": float((1 + net).prod() - 1),
                 "sharpe": float(net.mean() / net.std() * np.sqrt(TRADING_DAYS))
                 if net.std() > 0 else 0.0,
+                "financement": float(carry.sum()),
                 "exposition": float((position != 0).mean()),
             }
         )
@@ -288,6 +314,7 @@ def portfolio_backtest(
         hit_rate=float((traded > 0).mean()) if len(traded) else 0.0,
         exposure=float((combined.notna()).mean(axis=1).mean()),
         total_costs=float(pd.DataFrame(costs).mean(axis=1).sum()),
+        total_carry=float(pd.DataFrame(carries).mean(axis=1).sum()),
         final_balance=float(equity.iloc[-1]),
         equity=equity,
         per_asset=stats.sort_values("sharpe", ascending=False),

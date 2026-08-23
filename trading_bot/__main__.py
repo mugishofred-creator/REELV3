@@ -63,6 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     g = p.add_argument_group("multi-actifs")
     g.add_argument("--panel", action="store_true",
                    help="entraîne UN modèle mutualisé sur plusieurs actifs (voir --universe)")
+    g.add_argument("--no-funding", action="store_true",
+                   help="désactive le financement overnight (taux BIS)")
     g.add_argument("--universe", nargs="+", default=None,
                    help="symboles Yahoo ; défaut = panier FX/actions/matières/crypto")
 
@@ -85,7 +87,18 @@ def _run_panel(cfg: Config, args) -> int:
         return 1
 
     report = evaluate.evaluate(predictions)
-    result = panel.portfolio_backtest(pan, predictions, cfg)
+
+    rate_table = None
+    if not args.no_funding:
+        from . import rates as rates_module
+        try:
+            rate_table = rates_module.load_rates(
+                list(rates_module.AREA_BY_CURRENCY), cfg.data.cache_path
+            )
+        except Exception as exc:
+            print(f"Taux indisponibles, financement non modélisé : {exc}", file=sys.stderr)
+
+    result = panel.portfolio_backtest(pan, predictions, cfg, rates=rate_table)
 
     print("=" * 72)
     print(f"PANEL MUTUALISÉ : {pan.frame['symbol'].nunique()} actifs, "
