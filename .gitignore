@@ -133,3 +133,8 @@ credentials.json
 *.pem
 *.key
 .credentials
+
+# Cache de données de marché (trading_bot) — généré, et périssable par
+# conception : il porte un TTL, le versionner figerait ce qu'il doit rafraîchir.
+market_cache.db
+*.predictions.csv
