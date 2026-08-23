@@ -46,6 +46,40 @@ def test_normalise_drops_bars_without_close():
     assert df["close"].notna().all()
 
 
+def test_alphavantage_payload_is_parsed(monkeypatch):
+    payload = {
+        "Time Series FX (Daily)": {
+            "2024-01-02": {"1. open": "1.10", "2. high": "1.12",
+                           "3. low": "1.09", "4. close": "1.11"},
+            "2024-01-01": {"1. open": "1.09", "2. high": "1.11",
+                           "3. low": "1.08", "4. close": "1.10"},
+        }
+    }
+
+    class FakeResponse:
+        def raise_for_status(self): ...
+        def json(self): return payload
+
+    monkeypatch.setattr(data.requests, "get", lambda *a, **k: FakeResponse())
+    df = data._fetch_alphavantage(DataConfig(provider="alphavantage", symbol="EUR/USD"))
+    assert list(df.columns) == data.COLUMNS
+    assert df.index.is_monotonic_increasing          # l'API renvoie l'ordre inverse
+    assert df["close"].iloc[-1] == pytest.approx(1.11)
+
+
+def test_alphavantage_reports_quota_errors(monkeypatch):
+    """L'API répond 200 même en cas de quota dépassé : le message est dans le
+    corps, pas dans le statut. Sans ce contrôle on parserait un dict vide."""
+    class FakeResponse:
+        def raise_for_status(self): ...
+        def json(self): return {"Note": "call frequency limit"}
+
+    monkeypatch.setattr(data.requests, "get", lambda *a, **k: FakeResponse())
+    with pytest.raises(data.DataError, match="call frequency limit"):
+        data._fetch_alphavantage(DataConfig(provider="alphavantage", symbol="EUR/USD"),
+                                 max_attempts=1)
+
+
 def test_cache_expires(tmp_path):
     cfg = DataConfig(provider="twelvedata", cache_path=str(tmp_path / "c.db"),
                      cache_ttl_hours=1.0)

@@ -6,12 +6,13 @@ baseline honnête.
 
 ```bash
 pip install -r trading_bot/requirements.txt
-export TWELVEDATA_API_KEY="votre_clé"
 
-# P(mouvement de plus de 0,5 % sur 5 jours)
-python -m trading_bot --symbol EUR/USD --event amplitude --horizon 5 --barrier-pct 0.005
+# Fonctionne sans clé : Alpha Vantage sert un historique FX complet en démo.
+python -m trading_bot --symbol EUR/USD --event amplitude --horizon 5 \
+    --barrier-pct 0.010 --n-splits 8 --min-train-size 750
 
-# Sans clé API : série synthétique aux propriétés connues
+# Twelve Data, ou série synthétique aux propriétés connues :
+export TWELVEDATA_API_KEY="votre_clé" && python -m trading_bot --provider twelvedata ...
 python -m trading_bot --provider synthetic --event amplitude --horizon 5
 ```
 
@@ -92,6 +93,38 @@ groupée** (donc `amplitude` doit être prédictible) et **signes i.i.d.** (donc
 Le contrôle négatif est le plus important des deux : **un skill positif sur
 `direction` en synthétique signalerait une fuite de données.** C'est le test qui
 garde le pipeline honnête, et il tourne à chaque `pytest`.
+
+## 3 bis. Résultats sur données réelles
+
+EUR/USD quotidien, 5 000 barres (2007-06 → 2026-08), walk-forward purgé en
+8 folds, ~4 100 prédictions hors-échantillon. Aucun réglage n'a été refait pour
+ces données — c'est la configuration par défaut.
+
+| Événement | AUC | Brier skill | LogLoss skill | ECE | Verdict |
+|---|---|---|---|---|---|
+| `direction` h=1 | 0.494 | −0.0008 | −0.0006 | 0.045 | Rien. Et le modèle **ne prétend rien** (sharpness 0.032). |
+| `triple_barrier` h=10, ±1.5 ATR | 0.492 | −0.0002 | −0.0002 | 0.081 | Rien. |
+| **`amplitude` h=5, seuil 1 %** | **0.680** | **+0.050** | **+0.038** | 0.051 | **Signal réel**, positif dans 7 folds sur 8. |
+
+L'AUC de `amplitude` est remarquablement stable quel que soit le seuil — 0.694 à
+0.5 %, 0.680 à 1 %, 0.679 à 1.5 %, 0.679 à 2 % — ce qui est la signature d'un
+effet réel plutôt que d'un artefact de seuil.
+
+C'est exactement la hiérarchie annoncée en section 1, et elle vaut d'être
+formulée nettement : **sur du FX quotidien, la direction n'est pas prédictible,
+l'amplitude l'est.** Deux événements bien posés sur les mêmes données, avec les
+mêmes indicateurs, séparés par 0.19 point d'AUC.
+
+### Le piège du P&L
+
+Sur `direction`, le backtest affiche −6,1 % contre −14,4 % pour le buy & hold,
+et annonce donc « bat le buy & hold ». **C'est un artefact.** Avec une exposition
+de 7 % du temps et un Sharpe de −0.27, la stratégie ne prédit rien : elle est
+simplement à plat pendant qu'un actif baisse. Le pipeline affiche désormais un
+avertissement explicite quand un backtest est présenté alors que la probabilité
+n'a aucun skill.
+
+Le juge de paix est la section « qualité de la probabilité », jamais le P&L.
 
 ## 4. Évaluer une probabilité, pas une décision
 

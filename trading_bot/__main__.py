@@ -22,7 +22,8 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--symbol", default="EUR/USD")
     g.add_argument("--interval", default="1day")
     g.add_argument("--outputsize", type=int, default=2000)
-    g.add_argument("--provider", choices=["twelvedata", "csv", "synthetic"], default="twelvedata")
+    g.add_argument("--provider", choices=["alphavantage", "twelvedata", "csv", "synthetic"],
+                   default="alphavantage")
     g.add_argument("--csv-path")
     g.add_argument("--cache-ttl-hours", type=float, default=12.0)
 

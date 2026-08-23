@@ -139,7 +139,7 @@ class DataConfig:
     symbol: str = "EUR/USD"
     interval: str = "1day"
     outputsize: int = 2000
-    provider: Literal["twelvedata", "csv", "synthetic"] = "twelvedata"
+    provider: Literal["twelvedata", "alphavantage", "csv", "synthetic"] = "alphavantage"
     csv_path: str | None = None
     cache_path: str = "market_cache.db"
     #: Durée de vie du cache. Sans TTL, un cache SQLite fige les données à jamais.

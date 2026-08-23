@@ -83,6 +83,19 @@ class Result:
         ]
         if self.backtest is not None:
             blocks += ["", "--- BACKTEST HORS-ÉCHANTILLON " + "-" * 42, self.backtest.to_text()]
+            if not self.report.has_skill:
+                # Sans skill, la ligne « bat le buy & hold » ne veut rien dire :
+                # une stratégie exposée 7 % du temps bat mécaniquement un actif
+                # qui baisse, sans avoir rien prédit du tout. Le juge de paix
+                # reste la section précédente, jamais le P&L.
+                blocks += [
+                    "",
+                    "ATTENTION : la probabilité n'a pas de skill. Les chiffres de "
+                    "backtest ci-dessus sont",
+                    "du bruit — une exposition faible suffit à « battre » un actif "
+                    "qui baisse sans rien",
+                    "avoir prédit. Ne les lisez pas comme un résultat.",
+                ]
         else:
             blocks += [
                 "",

@@ -13,6 +13,7 @@ finit dans l'historique git, puis publiée.
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
 import time
 from io import StringIO
@@ -127,6 +128,54 @@ def _normalise(raw: pd.DataFrame) -> pd.DataFrame:
     return df[~df.index.duplicated(keep="last")]
 
 
+def _fetch_alphavantage(cfg: DataConfig, max_attempts: int = 4) -> pd.DataFrame:
+    """FX quotidien depuis Alpha Vantage.
+
+    Sans clé, la clé publique ``demo`` sert de repli : elle donne un historique
+    complet sur les paires majeures, ce qui suffit pour valider un pipeline. Pour
+    un usage régulier, exportez ``ALPHAVANTAGE_API_KEY`` (gratuite).
+    """
+    try:
+        base, quote = cfg.symbol.replace("-", "/").split("/")
+    except ValueError as exc:
+        raise DataError(f"Symbole attendu sous la forme EUR/USD, reçu {cfg.symbol!r}") from exc
+
+    params = {
+        "function": "FX_DAILY",
+        "from_symbol": base,
+        "to_symbol": quote,
+        "outputsize": "full",
+        "apikey": os.environ.get("ALPHAVANTAGE_API_KEY", "demo"),
+    }
+    last_error: Exception | None = None
+    for attempt in range(max_attempts):
+        try:
+            response = requests.get("https://www.alphavantage.co/query", params=params, timeout=45)
+            response.raise_for_status()
+            payload = response.json()
+            series = payload.get("Time Series FX (Daily)")
+            if not series:
+                # L'API répond 200 même pour une limite de quota ou un symbole
+                # inconnu : le message est dans le corps, pas dans le statut.
+                reason = payload.get("Note") or payload.get("Error Message") or payload
+                raise DataError(f"Alpha Vantage: {reason}")
+            frame = pd.DataFrame(series).T.rename(
+                columns={"1. open": "open", "2. high": "high",
+                         "3. low": "low", "4. close": "close"}
+            )
+            frame.index.name = "datetime"
+            return _normalise(frame.reset_index())
+        except DataError:
+            raise
+        except Exception as exc:
+            last_error = exc
+            wait = 2**attempt
+            logger.warning("Tentative %d échouée (%s) — nouvel essai dans %ds",
+                           attempt + 1, exc, wait)
+            time.sleep(wait)
+    raise DataError(f"Récupération impossible pour {cfg.symbol}: {last_error}")
+
+
 def _load_csv(cfg: DataConfig) -> pd.DataFrame:
     if not cfg.csv_path:
         raise DataError("provider=csv requiert --csv-path")
@@ -172,12 +221,13 @@ def load(cfg: DataConfig) -> pd.DataFrame:
     if cfg.provider == "csv":
         return _load_csv(cfg)
 
+    fetch = _fetch_alphavantage if cfg.provider == "alphavantage" else _fetch_twelvedata
     conn = _init_cache(cfg.cache_path)
     try:
         cached = _cache_read(conn, cfg)
         if cached is not None:
             return cached
-        df = _fetch_twelvedata(cfg)
+        df = fetch(cfg)
         _cache_write(conn, cfg, df)
         return df
     finally:
