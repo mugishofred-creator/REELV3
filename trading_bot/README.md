@@ -894,3 +894,92 @@ pas, alors que 69 % du gain sur dix journées est clairement un profil de
 loterie. `event_concentration()` gradue désormais — *réparti*, *concentré —
 fragile*, *très concentré — profil de loterie*, *événement unique* — avec un
 test qui reproduit exactement ce cas limite.
+
+
+---
+
+## 15. La synthèse : intégrer plutôt qu'additionner
+
+Quatre résultats de ce projet ont survécu à tous les contrôles. Les **additionner**
+a échoué : mélanger allocation (Sharpe 0.822) et momentum (0.702) donne 0.812 —
+moins que la meilleure brique seule, parce qu'elles sont **corrélées à 0.76**.
+Ce sont deux façons de porter la même prime actions, pas deux paris.
+
+L'**intégration** est différente : chaque brique intervient là où elle a
+démontré sa valeur, et une seule fois.
+
+| Brique | Rôle assigné | Retenue ? |
+|---|---|---|
+| Parité de risque | Pondération | **Oui** |
+| Ciblage de volatilité | Dimensionnement | **Oui** |
+| Momentum cross-sectionnel | Sélection | **Non** |
+| Asymétrie des queues | Inclinaison marginale | **Non** |
+
+### L'ablation semblait valider le momentum
+
+22 actifs, 2006-2026, 2 bps/côté. Le Sharpe monte à chaque couche :
+
+| Couche | Annualisé | Sharpe | DD max | Calmar | Turnover |
+|---|---|---|---|---|---|
+| Référence équipondérée | 9,10 % | 0,634 | −45,3 % | 0,201 | 1,99 |
+| + parité de risque | 8,87 % | 0,733 | −36,4 % | 0,243 | 2,52 |
+| **+ vol ciblée** | 8,59 % | **0,770** | **−24,8 %** | **0,346** | 3,54 |
+| + sélection momentum | 9,15 % | 0,795 | −28,7 % | 0,319 | 5,00 |
+
+### Les sous-périodes disent l'inverse
+
+| | Sans momentum | Avec momentum |
+|---|---|---|
+| Sharpe | 0,770 | 0,795 |
+| DD max | **−24,8 %** | −28,7 % |
+| Calmar | **0,346** | 0,319 |
+| Turnover | **3,54** | 5,00 |
+| **Sous-périodes gagnées** | **4/5** | 1/5 |
+
+Le momentum achète +0,025 de Sharpe contre 4 points de drawdown, 40 % de
+turnover en plus, et il **perd quatre sous-périodes sur cinq**. Tout son gain
+sur période complète vient de 2010-2014. C'est la signature d'une amélioration
+fortuite — et l'ablation seule ne l'aurait jamais montré.
+
+### L'inclinaison n'apporte rien de mesurable
+
+| Force | Sharpe | DD max |
+|---|---|---|
+| Base | 0,855 | −24,1 % |
+| 0,15 | 0,859 | −24,0 % |
+| 0,30 | 0,864 | −24,0 % |
+| 0,50 | 0,869 | −23,9 % |
+
+Amélioration monotone et gagnante sur 3 sous-périodes sur 4 — mais **+0,009 de
+Sharpe**. Deux modèles supplémentaires à entraîner pour du bruit. La couche
+reste dans le code, désactivée par défaut.
+
+### La configuration retenue
+
+**Parité de risque + ciblage de volatilité.** Rien d'autre.
+
+| Contrôle | Résultat |
+|---|---|
+| Décalage d'exécution | ✓ 0,770 → 0,733 (lag 1 → 5) |
+| Coûts (0 à 20 bps/côté) | ✓ 0,776 → 0,715 |
+| Concentration temporelle | ✓ **réparti** — 10 meilleures journées = 23,1 % du gain |
+| Journées gagnantes | 55,0 % |
+| t-stat Newey-West | **+3,71** |
+| Sous-périodes | 4/5 |
+
+**C'est la seule configuration du projet à franchir les cinq contrôles.** Et ce
+n'est toujours pas un edge sur le marché : c'est la prime de risque, récoltée
+proprement.
+
+### Un point contre-intuitif sur le ciblage de volatilité
+
+Il **n'est pas** une réduction du risque, c'est une **standardisation**. Sur des
+actifs moins volatils que la cible, il ajoute du levier et creuse le drawdown.
+S'il l'a réduit ici (−24,8 % contre −36,4 %), c'est parce que les actifs de cet
+univers sont plus volatils que la cible de 10 % — une propriété des données, pas
+de la méthode. Verrouillé par un test qui vérifie le rapprochement de la
+volatilité réalisée vers la cible, dans un sens **ou dans l'autre**.
+
+```bash
+python -m trading_bot --allocation --spread-bps 2
+```
