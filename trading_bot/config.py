@@ -161,6 +161,11 @@ class DataConfig:
     cache_path: str = "market_cache.db"
     #: Durée de vie du cache. Sans TTL, un cache SQLite fige les données à jamais.
     cache_ttl_hours: float = 12.0
+    #: Utiliser la clôture **ajustée** (dividendes et splits réintégrés).
+    #: Indispensable dès qu'un actif distribue : sur SPY, 2005-2026, la clôture
+    #: brute donne +536 % contre +843 % ajusté. Ignorer les dividendes revient à
+    #: amputer la prime de risque qu'on cherche justement à mesurer.
+    adjusted: bool = True
     #: Lu depuis l'environnement — jamais écrit dans le code source.
     api_key_env: str = "TWELVEDATA_API_KEY"
 

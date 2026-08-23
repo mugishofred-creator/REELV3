@@ -9,8 +9,9 @@
 > ne peut pas traiter. Voir la section 3 quinquies.
 >
 > Ce qui reste solide : la **méthodologie** (probabilités calibrées, walk-forward
-> purgé, contrôles négatifs), et l'événement `amplitude`, qui ne dépend pas de
-> ce mécanisme.
+> purgé, contrôles négatifs), l'événement `amplitude`, et surtout le mode
+> `--allocation` — une stratégie **sans aucune prédiction** qui, elle, passe le
+> test de décalage. Voir la section 10.
 
 Estimation de **P(mouvement)** à partir de plusieurs indicateurs, avec la seule
 chose qui rende ce nombre exploitable : une mesure de sa qualité face à une
@@ -468,3 +469,110 @@ produira très probablement aucun skill, et c'est le résultat correct : il n'y 
 presque rien à extraire. `--event amplitude` est le terrain où ces indicateurs
 ont une vraie chance. Un pipeline qui vous annonce un edge directionnel massif
 sur du FX quotidien a une fuite, pas une découverte.
+
+
+---
+
+## 10. La gestion du risque est-elle un edge ?
+
+Question posée directement, et la réponse tient en deux temps opposés.
+
+### Non — pas sur un marché à espérance nulle. C'est un théorème.
+
+Si le prix est une martingale, le **théorème d'arrêt optionnel** garantit que
+*toute* règle d'arrêt — stop-loss, take-profit, sortie en temps — laisse
+l'espérance strictement inchangée. Vérifié sur 60 000 trajectoires d'un marché
+construit pour avoir `E[P_t] = P_0` exactement :
+
+| Schéma | E[rendement] | Médiane | Pire 1 % | P(ruine) |
+|---|---|---|---|---|
+| Buy & hold, aucun stop | −0,035 % | −1,36 % | −31,4 % | — |
+| Stop −2 % / Target +2 % | +0,007 % | −2,00 % | −3,9 % | — |
+| Stop −1 % / Target +5 % | +0,007 % | −1,30 % | −3,1 % | — |
+| Stop −5 % / Target +1 % | +0,005 % | **+1,30 %** | −6,6 % | — |
+| Martingale (×2 après perte) | +22 % | **+112 %** | **−100 %** | **45,4 %** |
+| Anti-martingale (×1,5) | −0,638 % | −11,6 % | −65,7 % | 0 % |
+
+**Toutes les espérances sont nulles.** Seule la *forme* de la distribution
+change — et les formes les plus séduisantes sont les pires. Un stop large avec
+un objectif serré produit une médiane positive et un taux de réussite élevé :
+c'est l'illusion du système gagnant. La martingale fait mieux encore, +112 % de
+médiane… en détruisant 45 % des comptes.
+
+Aucun dimensionnement ne transforme une espérance nulle en espérance positive.
+Ajoutez les coûts, et tout devient strictement négatif.
+
+### Oui — appliquée à une prime de risque réelle.
+
+Là, il n'y a rien à prédire. Les actions et les obligations ont une espérance
+positive parce qu'elles **rémunèrent un risque**, pas parce qu'on saurait quand
+elles montent. La gestion du risque ne crée pas cette prime : elle en améliore
+la restitution.
+
+8 ETF (actions US/international/émergents, obligations long et moyen terme,
+immobilier coté, or), 2005-2026, coûts 2 bps/côté, clôtures ajustées des
+dividendes :
+
+| Stratégie | Annualisé | Volatilité | Sharpe | DD max | Calmar |
+|---|---|---|---|---|---|
+| Buy & hold (dérive libre) | 9,49 % | 13,5 % | 0,739 | −37,8 % | 0,251 |
+| Équipondéré, rebalancé 21j | 9,21 % | 13,1 % | 0,740 | −37,1 % | 0,248 |
+| Parité de risque | 8,16 % | 9,1 % | **0,912** | **−24,2 %** | 0,337 |
+| **Vol ciblée 10 %** | **9,91 %** | 11,1 % | 0,906 | −24,5 % | **0,405** |
+
+Meilleur actif isolé : QQQ, Sharpe 0,702. Le portefeuille géré atteint **0,912**.
+Et le ciblage de volatilité fait mieux **sur les deux axes** que le buy & hold :
+plus de rendement (9,91 % contre 9,49 %) *et* un tiers de drawdown en moins
+(−24,5 % contre −37,8 %). Calmar : 0,251 → 0,405, soit +61 %.
+
+### Le rebalancement seul ne rapporte rien ici
+
+À noter, parce que c'est souvent survendu : rebalancer vers des poids égaux
+donne 9,21 % contre 9,49 % en laissant dériver. **La prime de rebalancement est
+négative sur cette période** — vendre les actions qui montaient pour racheter
+des obligations a coûté. Ce n'est pas de l'argent gratuit, c'est un pari sur le
+retour à la moyenne entre classes d'actifs, et il n'a pas payé ici. Le gain
+vient de la **pondération par le risque**, pas du rebalancement.
+
+### Le contrôle décisif
+
+Cette stratégie ne prédit rien à l'échelle de la barre. Elle doit donc être
+insensible au décalage d'exécution — et elle l'est :
+
+| lag | 1 | 2 | 3 | 5 |
+|---|---|---|---|---|
+| Sharpe (vol ciblée) | 0,906 | 0,867 | 0,866 | 0,839 |
+| Sharpe (directionnelle, section 3 quinquies) | +3,69 | **−0,79** | −0,48 | — |
+
+C'est la différence entre un rendement réel et un artefact de microstructure.
+
+### Par sous-période
+
+| Période | Buy & hold | Vol ciblée |
+|---|---|---|
+| 2005-2009 (crise) | +7,47 % · DD −37,8 % | **+9,59 % · DD −22,3 %** |
+| 2010-2014 | +9,92 % · DD −9,2 % | +13,13 % · DD −11,9 % |
+| 2015-2019 | +7,52 % · DD −12,4 % | +11,21 % · DD −14,5 % |
+| 2020-2021 | **+13,82 %** · DD −19,7 % | +6,40 % · DD −20,3 % |
+| 2022-2026 | +8,67 % · DD −25,6 % | +8,00 % · DD **−18,7 %** |
+
+Le point faible est visible et connu : **2020-2021**. Après le krach de mars
+2020, le ciblage de volatilité désendette et rate le rebond en V. C'est le coût
+structurel de la méthode — elle protège des crises longues et se fait piéger par
+les reprises brutales.
+
+### Ce que ça vaut, honnêtement
+
+Ce n'est pas une machine à gagner : c'est un portefeuille diversifié bien géré.
+Le résultat — Sharpe 0,91, environ 10 %/an — est celui d'une allocation
+classique correctement exécutée, et c'est exactement pour cela qu'il est
+crédible. Il repose sur une prime de risque réelle, il survit aux coûts et au
+décalage d'exécution, et il n'exige **aucune prédiction**.
+
+Deux limites à garder en tête : la période 2005-2026 a été favorable aux actions
+comme aux obligations, et la prime de risque peut ne pas se matérialiser sur
+votre horizon. Le mode est un point de départ documenté, pas un conseil.
+
+```bash
+python -m trading_bot --allocation --spread-bps 2
+```

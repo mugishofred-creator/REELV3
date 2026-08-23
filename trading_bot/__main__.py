@@ -63,6 +63,9 @@ def build_parser() -> argparse.ArgumentParser:
     g = p.add_argument_group("multi-actifs")
     g.add_argument("--panel", action="store_true",
                    help="entraîne UN modèle mutualisé sur plusieurs actifs (voir --universe)")
+    g.add_argument("--allocation", action="store_true",
+                   help="stratégie SANS prédiction : diversification, parité de "
+                        "risque, ciblage de volatilité")
     g.add_argument("--no-funding", action="store_true",
                    help="désactive le financement overnight (taux BIS)")
     g.add_argument("--universe", nargs="+", default=None,
@@ -71,6 +74,38 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", metavar="PATH", help="écrit les prédictions en CSV et un résumé JSON")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
+
+
+def _run_allocation(cfg: Config, args) -> int:
+    """Mode non prédictif : l'edge vient de la prime de risque, pas d'un signal."""
+    from . import allocation
+
+    symbols = args.universe or list(allocation.RISK_PREMIUM_UNIVERSE)
+    try:
+        prices = allocation.load_universe(symbols, cfg)
+    except Exception as exc:
+        print(f"Échec : {exc}", file=sys.stderr)
+        return 1
+
+    print("=" * 78)
+    print(f"ALLOCATION SANS PRÉDICTION — {prices.shape[1]} actifs")
+    print(f"{prices.index[0].date()} -> {prices.index[-1].date()}  ({len(prices)} jours)")
+    print("=" * 78)
+
+    table = allocation.compare(prices, cost_bps=cfg.backtest.spread_bps)
+    print("\n--- COMPARAISON " + "-" * 60)
+    print(table.to_string())
+
+    print("\n--- ROBUSTESSE AU DÉCALAGE D'EXÉCUTION " + "-" * 37)
+    robustness = allocation.lag_robustness(prices, cost_bps=cfg.backtest.spread_bps)
+    print(robustness.to_string())
+    if robustness.attrs["stable"]:
+        print("\n>>> STABLE : le résultat ne dépend pas du print de clôture.")
+        print("    C'est attendu — cette stratégie ne prédit rien à l'échelle de "
+              "la barre.")
+    else:
+        print("\n>>> ALERTE : instabilité au décalage, à investiguer.")
+    return 0
 
 
 def _run_panel(cfg: Config, args) -> int:
@@ -156,6 +191,9 @@ def main(argv: list[str] | None = None) -> int:
                           evidence_weight=args.evidence_weight),
         backtest=BacktestConfig(spread_bps=args.spread_bps, edge_threshold=args.edge_threshold),
     )
+
+    if args.allocation:
+        return _run_allocation(cfg, args)
 
     if args.panel:
         return _run_panel(cfg, args)

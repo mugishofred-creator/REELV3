@@ -207,7 +207,7 @@ def _fetch_yahoo(cfg: DataConfig, start: str = "2005-01-01",
     p1 = int(pd.Timestamp(start).timestamp())
     p2 = int(pd.Timestamp.now().timestamp())
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{cfg.symbol}"
-    params = {"period1": p1, "period2": p2, "interval": "1d"}
+    params = {"period1": p1, "period2": p2, "interval": "1d", "events": "div,split"}
     headers = {"User-Agent": "Mozilla/5.0"}
 
     last_error: Exception | None = None
@@ -231,6 +231,17 @@ def _fetch_yahoo(cfg: DataConfig, start: str = "2005-01-01",
                     "volume": quote.get("volume"),
                 }
             )
+
+            adjusted = (result.get("indicators", {}).get("adjclose") or [{}])[0].get("adjclose")
+            if cfg.adjusted and adjusted is not None:
+                # On applique le même facteur à toute la barre : sinon un high
+                # brut et un close ajusté cohabiteraient, et l'ATR comme les
+                # positions dans le canal deviendraient incohérents.
+                raw_close = pd.to_numeric(frame["close"], errors="coerce")
+                factor = pd.to_numeric(pd.Series(adjusted), errors="coerce") / raw_close
+                for column in ("open", "high", "low", "close"):
+                    frame[column] = pd.to_numeric(frame[column], errors="coerce") * factor
+
             return _normalise(frame)
         except DataError:
             raise
