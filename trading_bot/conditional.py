@@ -23,6 +23,19 @@ Trois diagnostics accompagnent chaque régime, et aucun ne suffit seul :
 3. **La t-stat de Newey-West**, corrigée du chevauchement. Et le seuil doit
    monter avec le nombre de régimes testés : quatre régimes, c'est quatre
    chances de trouver du bruit.
+4. **La concentration dans le TEMPS.** Le contrôle le plus tardif et le plus
+   décisif de ce dépôt. Un signal peut passer le décalage, répliquer sur un
+   univers séparé, résister à l'ajout des entreprises faillies et afficher une
+   t-stat de 2.80 — et n'être qu'un **événement unique**. Mesuré sur le régime
+   de panique : les 3 meilleures journées portent 76 % du gain, les 5
+   meilleures 108 %, et sans les 10 meilleures le total passe à −24,4. Cinq des
+   dix meilleures journées sont le krach Covid de mars-avril 2020. La journée
+   médiane rapporte +0,0001 et 50,0 % des journées gagnent : à l'échelle du
+   jour ordinaire, il n'y a **rien**.
+
+   La t-stat elle-même trompe dans ce cas : Newey-West suppose une variance
+   finie et des queues raisonnables. Avec une distribution où un jour porte
+   32 % du total, cette hypothèse ne tient pas.
 """
 
 from __future__ import annotations
@@ -151,6 +164,43 @@ def diagnose(predictions: pd.DataFrame, name: str,
         median_trade=float(first.median()),
         hit_rate=float((first > 0).mean()),
     )
+
+
+def event_concentration(predictions: pd.DataFrame, date_column: str = "date",
+                        pnl_column: str = "pnl") -> pd.DataFrame:
+    """Combien de **journées** portent le résultat ?
+
+    Distinct de la concentration par observation : un gain réparti sur 300
+    observations peut n'être qu'une seule journée de marché vue à travers 300
+    actifs corrélés. C'est exactement le cas qui a invalidé le dernier signal
+    de ce dépôt — l'agrégation par actif donnait l'illusion d'un échantillon
+    large là où il n'y avait qu'une poignée d'événements.
+
+    Règle de lecture : si retirer les 10 meilleures journées d'un historique de
+    plusieurs milliers rend le total négatif, ce n'est pas une stratégie, c'est
+    un pari sur quelques dates — et il ne se répliquera pas.
+    """
+    daily = predictions.groupby(date_column)[pnl_column].sum().sort_values(ascending=False)
+    total = float(daily.sum())
+    rows = []
+    for n in (1, 3, 5, 10, 20):
+        if n > len(daily):
+            break
+        head = float(daily.head(n).sum())
+        rows.append({
+            "meilleures journées": n,
+            "part du gain": round(head / total, 3) if total != 0 else float("nan"),
+            "total sans elles": round(total - head, 3),
+        })
+    table = pd.DataFrame(rows).set_index("meilleures journées")
+    without_ten = total - float(daily.head(min(10, len(daily))).sum())
+    table.attrs["n_dates"] = int(len(daily))
+    table.attrs["median_day"] = float(daily.median())
+    table.attrs["winning_days"] = float((daily > 0).mean())
+    # Un total qui devient négatif sans les dix meilleures journées : le
+    # résultat est un événement, pas un effet.
+    table.attrs["is_single_event"] = bool(total > 0 and without_ten <= 0)
+    return table
 
 
 def report(diagnostics: list[RegimeDiagnostic]) -> str:

@@ -116,3 +116,70 @@ def test_report_mentions_multiple_testing():
     text = K.report(diagnostics)
     assert "tests multiples" in text
     assert "3 régimes testés" in text
+
+
+# --------------------------------------------------------------------------- #
+# Concentration dans le temps — le contrôle qui a invalidé le dernier signal
+# --------------------------------------------------------------------------- #
+def _daily(pnl_by_date: dict[str, list[float]]) -> pd.DataFrame:
+    rows = []
+    for date, values in pnl_by_date.items():
+        for symbol, value in enumerate(values):
+            rows.append({"date": pd.Timestamp(date), "symbol": symbol, "pnl": value})
+    return pd.DataFrame(rows)
+
+
+def test_single_event_is_detected():
+    """Un gain porté par quelques dates n'est pas un effet, c'est un événement.
+
+    Reproduit le cas réel : 3 000 journées ordinaires à zéro et une poignée de
+    journées de krach qui portent tout. Le piège est que l'agrégation par actif
+    donne l'illusion d'un grand échantillon — 30 000 observations pour 3 250
+    dates, dont 5 font le résultat.
+    """
+    rng = np.random.default_rng(20)
+    data = {}
+    for i in range(600):
+        date = pd.Timestamp("2015-01-01") + pd.Timedelta(days=i)
+        data[str(date.date())] = list(rng.normal(-0.0002, 0.004, 40))
+    # Cinq journées de krach, chacune énorme sur les 40 actifs
+    for j, day in enumerate([120, 121, 122, 300, 450]):
+        date = pd.Timestamp("2015-01-01") + pd.Timedelta(days=day)
+        data[str(date.date())] = list(np.full(40, 0.15))
+
+    table = event_table = K.event_concentration(_daily(data))
+    assert event_table.attrs["is_single_event"]
+    assert table.loc[5, "part du gain"] > 0.9
+    assert table.loc[10, "total sans elles"] <= 0
+
+
+def test_broad_effect_is_not_flagged():
+    """Contrôle symétrique : un effet réparti sur des centaines de journées doit
+    passer, sinon le garde-fou rejetterait aussi les vrais signaux."""
+    rng = np.random.default_rng(21)
+    data = {}
+    for i in range(800):
+        date = pd.Timestamp("2015-01-01") + pd.Timedelta(days=i)
+        data[str(date.date())] = list(rng.normal(0.0008, 0.003, 30))
+
+    table = K.event_concentration(_daily(data))
+    assert not table.attrs["is_single_event"]
+    assert table.loc[10, "part du gain"] < 0.25
+    assert table.attrs["winning_days"] > 0.6
+
+
+def test_concentration_counts_dates_not_observations():
+    """Une seule journée vue à travers 500 actifs corrélés reste UNE journée.
+    C'est la distinction que la concentration par observation manque."""
+    rng = np.random.default_rng(22)
+    data = {"2020-03-23": list(np.full(500, 0.2))}      # LA journée
+    for i in range(200):
+        date = pd.Timestamp("2021-01-01") + pd.Timedelta(days=i)
+        # Journées ordinaires centrées sur zéro, comme dans le cas réel
+        # (médiane mesurée : +0.0001, 50,0 % de journées gagnantes).
+        data[str(date.date())] = list(rng.normal(0.0, 0.002, 500))
+
+    table = K.event_concentration(_daily(data))
+    assert table.attrs["n_dates"] == 201           # pas 100 500 observations
+    assert table.loc[1, "part du gain"] > 0.9      # une seule date porte tout
+    assert 0.4 < table.attrs["winning_days"] < 0.6 # le jour ordinaire : pile ou face

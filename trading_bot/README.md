@@ -739,3 +739,83 @@ exactement le gain.
 C'est une réponse, pas un échec : sur des données quotidiennes publiques, avec
 des coûts réalistes et une méthodologie qui ne se ment pas, **l'edge exploitable
 est le contrôle du risque**.
+
+
+---
+
+## 13. Le signal qui a passé quatre contrôles — et qui n'existe pas
+
+Recherche d'un edge **conditionnel** : plutôt que « la direction est-elle
+prédictible ? » (non, en moyenne), « existe-t-il des états où elle l'est ? ».
+Motivée par le seul résultat solide du dépôt — on sait prédire la volatilité —
+et par un mécanisme plausible : en panique, les ventes forcées créent des
+dislocations économiques réelles, pas du bruit de cotation.
+
+### Le point méthodologique préalable
+
+Un modèle unique entraîné sur tous les états **moyenne les régimes** et efface
+la structure recherchée. Mesuré : en découpant a posteriori les prédictions d'un
+modèle global par quantile de volatilité, l'AUC reste plate entre 0.512 et
+0.531. En entraînant **un modèle par régime**, la dispersion apparaît. Pour
+détecter un edge conditionnel, le modèle doit avoir le droit de conditionner.
+
+### Ce que le signal a franchi
+
+| Contrôle | Régime « tendu » (80-95 %) | Régime « panique » (95-100 %) |
+|---|---|---|
+| **1. Décalage d'exécution** | ✗ +10,6 % → +0,4 % au j+3 (sur ETF) | **✓** +20,6 % au j+1, +21,7 % au j+5 |
+| **2. Réplication, univers séparé** (99 actions, 511 223 lignes) | ✓ t = **+4,05** | ✓ t = +2,52 |
+| **3. Biais du survivant** (+16 sociétés sinistrées) | ✗ **+13,6 % → −9,5 %**, t = −1,87 | **✓** +20,6 % → **+32,1 %**, t = **+2,80** |
+| **4. Concentration par observation** | — | ⚠ top 1 % = 205 % du gain |
+| **5. Concentration dans le TEMPS** | — | ✗✗ **voir ci-dessous** |
+
+Le régime « tendu » était le résultat le plus significatif de toute la session —
+t = 4,05 sur 59 740 observations, robuste au décalage. Ajouter 16 entreprises
+sinistrées à 99 inverse le signe. Il ne mesurait que l'absence des cadavres.
+
+Le régime « panique », lui, a franchi les trois premiers contrôles. Y compris le
+plus dur : ajouter Fannie Mae, Freddie Mac, AIG, Citigroup, PG&E et First
+Republic l'a **renforcé** (les rebonds de chat mort sont violents).
+
+### Le cinquième contrôle
+
+30 225 observations réparties sur **3 247 dates**. Combien de journées portent le
+résultat ?
+
+| Meilleures journées | Part du gain total |
+|---|---|
+| 1 | **32 %** |
+| 3 | **76 %** |
+| 5 | **108 %** |
+| 10 | 164 % |
+
+**Sans les 10 meilleures journées, le total passe de +38,4 à −24,4.** Journée
+médiane : **+0,0001**. Journées gagnantes : **50,0 %** — pile ou face exact.
+
+Les cinq meilleures journées : `2020-03-23`, `2020-03-12`, `2020-04-03`,
+`2020-03-16`, `2020-03-25`. **Le krach Covid.**
+
+Ce n'était pas une stratégie. C'était être long au creux de mars 2020.
+
+### Pourquoi la t-stat ne l'avait pas vu
+
+Newey-West suppose une variance finie et des queues raisonnables. Avec une
+distribution où **une seule journée porte 32 % du total**, cette hypothèse ne
+tient pas : le t de 2,80 est un artefact de l'approximation normale sur une
+distribution qui ne s'y prête pas.
+
+Et l'agrégation par actif entretenait l'illusion : 30 225 observations
+paraissent un large échantillon, mais 500 actifs corrélés vus le même jour
+restent **un seul événement**. C'est la distinction que
+`event_concentration()` mesure, et que la concentration par observation
+manquait.
+
+### La leçon
+
+**Quatre contrôles indépendants franchis, et le résultat n'existe pas.** Chacun
+de ces contrôles avait, plus tôt dans ce projet, tué un faux signal. Aucun n'est
+suffisant. Il en fallait un cinquième — et rien ne garantit qu'il n'en manque
+pas un sixième.
+
+C'est la vraie difficulté de ce métier : non pas trouver des motifs, mais
+survivre à ses propres découvertes.
