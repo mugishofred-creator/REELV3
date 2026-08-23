@@ -118,3 +118,62 @@ def test_layer_label_describes_what_is_active():
     full = X.Layer(True, True, True, True).label()
     assert all(part in full for part in
                ("sélection", "parité de risque", "vol ciblée", "inclinaison"))
+
+
+# --------------------------------------------------------------------------- #
+# Robustesse : le résultat tient-il aux choix qu'on n'appelle pas des réglages ?
+# --------------------------------------------------------------------------- #
+def test_sharpe_is_invariant_to_the_volatility_target(universe):
+    """Propriété théorique du ciblage de volatilité, et test de correction de
+    l'implémentation.
+
+    Changer la cible doit faire varier le rendement et le drawdown
+    proportionnellement, **sans toucher au ratio**. Mesuré sur données réelles :
+    Sharpe 0.783 / 0.782 / 0.781 / 0.766 / 0.762 pour des cibles de 6 % à 20 %,
+    tandis que le rendement passait de 5,3 % à 15,9 %. Une dérive du Sharpe
+    signalerait une fuite de levier ou un plafond mal placé.
+    """
+    layers = X.Layer(False, True, True, False)
+    sharpes = [X.run(universe, layers, cost_bps=0.0, target_vol=tv,
+                     max_leverage=5.0).sharpe
+               for tv in (0.06, 0.10, 0.15)]
+    assert max(sharpes) - min(sharpes) < 0.12
+
+
+def test_returns_scale_with_the_volatility_target(universe):
+    layers = X.Layer(False, True, True, False)
+    low = X.run(universe, layers, cost_bps=0.0, target_vol=0.06, max_leverage=5.0)
+    high = X.run(universe, layers, cost_bps=0.0, target_vol=0.18, max_leverage=5.0)
+    assert high.annualised > low.annualised
+    assert high.max_drawdown < low.max_drawdown          # plus profond
+
+
+def test_universe_sensitivity_accepts_a_diversified_effect(universe):
+    """Un mécanisme de diversification doit tenir sur des sous-ensembles tirés
+    au hasard — sinon le résultat tient au choix des actifs, qui est une forme
+    de sur-apprentissage d'autant plus discrète qu'elle ne ressemble pas à un
+    réglage de paramètre."""
+    layers = X.Layer(False, True, True, False)
+    table = X.universe_sensitivity(universe, layers, n_draws=25, sizes=(3, 5),
+                                   cost_bps=0.0, seed=1)
+    assert list(table.index) == [3, 5]
+    assert (table["q05"] <= table["sharpe médian"]).all()
+    assert (table["sharpe médian"] <= table["q95"]).all()
+
+
+def test_universe_sensitivity_flags_a_fragile_result():
+    """Contrôle symétrique : un univers dont un seul actif porte tout doit
+    ressortir fragile."""
+    rng = np.random.default_rng(14)
+    n = 1500
+    index = pd.bdate_range("2016-01-01", periods=n)
+    data = {"STAR": 100 * np.exp(np.cumsum(rng.normal(0.0012, 0.010, n)))}
+    for i in range(5):
+        data[f"DUD{i}"] = 100 * np.exp(np.cumsum(rng.normal(-0.0004, 0.014, n)))
+    prices = pd.DataFrame(data, index=index)
+
+    table = X.universe_sensitivity(prices, X.Layer(False, True, True, False),
+                                   n_draws=40, sizes=(2, 3), cost_bps=0.0, seed=2)
+    # Les tirages sans l'actif porteur doivent tirer le quantile bas en négatif.
+    assert table["q05"].min() < 0
+    assert not table.attrs["robust"]

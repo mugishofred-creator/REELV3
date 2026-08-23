@@ -983,3 +983,93 @@ volatilité réalisée vers la cible, dans un sens **ou dans l'autre**.
 ```bash
 python -m trading_bot --allocation --spread-bps 2
 ```
+
+
+---
+
+## 16. Le sixième contrôle : et si c'était le choix de l'univers ?
+
+Un univers est un **choix**, et un choix fait en connaissant les données est une
+forme de sur-apprentissage aussi efficace qu'un réglage de paramètre — en plus
+discret, parce qu'il ne ressemble pas à un réglage. La stratégie retenue tourne
+sur 22 actifs que j'ai sélectionnés. Ce chiffre de 0,770 tient-il à ce choix ?
+
+### 800 tirages aléatoires
+
+| Taille | Sharpe médian | q05 | q95 | % positifs | % > 0,5 |
+|---|---|---|---|---|---|
+| 5 | 0,702 | 0,542 | 0,987 | **100 %** | 97 % |
+| 8 | 0,758 | 0,589 | 0,941 | **100 %** | 99 % |
+| 12 | 0,761 | 0,633 | 0,895 | **100 %** | 100 % |
+| 16 | 0,764 | **0,681** | 0,850 | **100 %** | 100 % |
+
+**Aucun tirage sur 800 ne donne un Sharpe négatif**, et le pire 5 % reste
+au-dessus de 0,54. Le plancher monte avec la taille (0,542 → 0,681) : c'est la
+diversification qui converge, exactement le mécanisme revendiqué. Et l'univers
+retenu donne 0,770 contre 0,764 de médiane à 16 actifs — pas de main heureuse.
+
+### Le reste des choix
+
+| Fenêtre de volatilité | 20j | 40j | **60j** | 90j | 120j |
+|---|---|---|---|---|---|
+| Sharpe | 0,806 | 0,746 | **0,770** | 0,713 | 0,710 |
+
+| Rebalancement | 5j | 10j | **21j** | 42j | 63j |
+|---|---|---|---|---|---|
+| Sharpe | 0,774 | 0,755 | **0,770** | 0,755 | **0,599** |
+| DD max | −22,7 % | −23,4 % | −24,8 % | −28,8 % | **−46,1 %** |
+
+Deux choses honnêtes à en dire. La fenêtre de 60 jours **n'est pas la
+meilleure** sur période complète — 20 jours donne 0,806. Et le rebalancement
+trimestriel **casse la stratégie** (drawdown −46,1 %) : c'est une fragilité
+réelle, la couche de dimensionnement a besoin d'être rafraîchie au moins
+mensuellement.
+
+### La validation la plus propre
+
+| Cible de vol | 6 % | 8 % | 10 % | 15 % | 20 % |
+|---|---|---|---|---|---|
+| Annualisé | +5,32 % | +7,04 % | +8,75 % | +12,62 % | +15,92 % |
+| DD max | −15,4 % | −20,2 % | −24,8 % | −35,8 % | −45,9 % |
+| **Sharpe** | **0,783** | **0,782** | **0,781** | **0,766** | **0,762** |
+
+Le rendement triple, le drawdown triple, **le Sharpe ne bouge pas**. C'est
+exactement ce que la théorie prédit d'un ciblage de volatilité correctement
+implémenté : il déplace le curseur risque/rendement sans créer ni détruire de
+ratio. Une dérive du Sharpe aurait signalé une fuite de levier ou un plafond mal
+placé. Verrouillé par un test.
+
+C'est aussi la réponse à « comment gagner plus ? » : **choisissez votre cible**.
+Le prix est affiché dans la colonne drawdown, et il est linéaire.
+
+### Le point faible, diagnostiqué
+
+2007-2009 reste le pire passage (Sharpe 0,21). Le mécanisme est visible mois par
+mois :
+
+| Mois | Vol réalisée | Levier | Rendement |
+|---|---|---|---|
+| 2008-09 | 13,2 % | 0,78 | **−6,73 %** |
+| 2008-10 | 27,7 % | 0,38 | **−9,48 %** |
+| 2008-11 | 39,6 % | 0,25 | −0,59 % |
+| 2008-12 | 43,7 % | 0,23 | +1,29 % |
+
+Les dégâts sont faits **avant** que le levier ne descende ; ensuite la
+protection fonctionne, mais l'exposition encore à 0,24 en janvier 2009 fait
+rater le rebond de mars. Trop lent à l'entrée, trop lent à la sortie.
+
+Et une fenêtre plus courte **n'aide pas** : en 2007-2009, 20 jours donne un
+Sharpe de −0,008 contre +0,214 à 60 jours. Elle réagit plus vite mais fouette
+davantage. Sur ce point précis, il n'y a pas de réglage gagnant — seulement un
+arbitrage.
+
+Bilan de crise, à comparer honnêtement :
+
+| | Annualisé | DD max | Sharpe |
+|---|---|---|---|
+| Équipondéré | +0,81 % | −45,2 % | 0,16 |
+| Parité de risque seule | **+2,45 %** | −35,5 % | **0,22** |
+| Parité + vol ciblée | +1,80 % | **−23,8 %** | 0,21 |
+
+La vol ciblée **achète** de la protection (−35,5 % → −23,8 %) en payant du
+rendement, pour un ratio inchangé. Elle ne crée rien : elle échange.

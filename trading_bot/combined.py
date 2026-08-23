@@ -165,3 +165,60 @@ def lag_robustness(prices: pd.DataFrame, layers: Layer, cost_bps: float = 2.0,
     reference = table.loc[lags[0], "sharpe"]
     table.attrs["stable"] = bool(reference > 0 and (table["sharpe"] > 0.7 * reference).all())
     return table
+
+
+def universe_sensitivity(prices: pd.DataFrame, layers: Layer, n_draws: int = 200,
+                         sizes: tuple[int, ...] = (5, 8, 12, 16),
+                         cost_bps: float = 2.0, seed: int = 0) -> pd.DataFrame:
+    """Le résultat dépend-il du choix de l'univers ?
+
+    Contrôle rarement fait, et pourtant décisif. Un univers est un **choix**, et
+    un choix pris en connaissant les données est une forme de sur-apprentissage
+    aussi efficace qu'un réglage de paramètre — en plus discret, parce qu'il ne
+    ressemble pas à un réglage.
+
+    Le test tire des sous-ensembles aléatoires de tailles croissantes et regarde
+    la **distribution** du Sharpe. Deux lectures :
+
+    - Un Sharpe médian stable et un quantile 5 % positif signalent un effet qui
+      ne tient pas à la composition retenue.
+    - Une dispersion large, ou un quantile bas négatif, signalent qu'on a
+      surtout eu la main heureuse sur l'univers.
+
+    On attend une amélioration avec la taille — c'est la diversification, qui
+    est le mécanisme même de la stratégie. Ce qui compte est le **plancher**,
+    pas la moyenne.
+    """
+    rng = np.random.default_rng(seed)
+    columns = list(prices.columns)
+    rows = []
+
+    for size in sizes:
+        if size > len(columns):
+            continue
+        sharpes = []
+        for _ in range(n_draws):
+            picked = list(rng.choice(columns, size=size, replace=False))
+            subset = prices[picked].dropna()
+            if len(subset) < 500:
+                continue
+            sharpes.append(run(subset, layers, cost_bps=cost_bps).sharpe)
+        if not sharpes:
+            continue
+        values = np.array(sharpes)
+        rows.append({
+            "taille": size,
+            "sharpe médian": round(float(np.median(values)), 3),
+            "q05": round(float(np.quantile(values, 0.05)), 3),
+            "q95": round(float(np.quantile(values, 0.95)), 3),
+            "% positifs": round(float((values > 0).mean()), 3),
+            "% > 0.5": round(float((values > 0.5).mean()), 3),
+        })
+
+    table = pd.DataFrame(rows).set_index("taille")
+    # Le résultat est robuste si même les tirages malheureux restent corrects.
+    largest = table.iloc[-1] if len(table) else None
+    table.attrs["robust"] = bool(
+        largest is not None and largest["q05"] > 0.3 and largest["% positifs"] > 0.95
+    )
+    return table
