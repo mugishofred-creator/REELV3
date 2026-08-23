@@ -819,3 +819,78 @@ pas un sixième.
 
 C'est la vraie difficulté de ce métier : non pas trouver des motifs, mais
 survivre à ses propres découvertes.
+
+
+---
+
+## 14. L'asymétrie des queues : la hausse est plus prédictible que la baisse
+
+Question inédite, entre les deux précédentes. `direction` demande *dans quel
+sens* — imprédictible. `amplitude` demande *de combien* sans le sens —
+prédictible (AUC 0.816) mais non monétisable. Entre les deux : **P(forte
+baisse)** et **P(forte hausse)**, mesurées séparément, en miroir exact.
+
+Conception dictée par l'échec de la section 13 : on cherche explicitement un
+effet à **nombreux événements**. Un seuil de queue à 12 % d'occurrence produit
+des milliers d'épisodes sur vingt ans, pas une poignée de krachs.
+
+### Le résultat contredit le folklore
+
+20 ETF, 105 880 lignes, 81 880 prédictions hors-échantillon, seuil 5 % sur
+10 jours, extrêmes mesurés intra-barre :
+
+| | BAISSE | HAUSSE |
+|---|---|---|
+| AUC | 0,6710 | **0,7240** |
+| Brier skill | +0,0225 | **+0,0489** |
+| Taux de base | 0,1236 | 0,1222 |
+| Folds positifs | 5/6 | **6/6** |
+
+On répète que les krachs sont prévisibles. **Les données disent l'inverse : ce
+sont les fortes hausses qui le sont, et de loin.** Les taux de base étant quasi
+identiques, l'écart ne vient pas de la définition. Mécanisme plausible : les
+rebonds partent d'états identifiables — volatilité élevée après une baisse —
+alors que les krachs naissent dans le calme.
+
+### Mais l'essentiel est de la volatilité déguisée
+
+Corrélation entre les deux probabilités : **0,7355**. **54,1 %** de `p(hausse)`
+est expliqué par `p(baisse)`. Les deux modèles mesurent d'abord la même chose —
+la volatilité, qu'on savait déjà prédire.
+
+Le signal brut `p(hausse) − p(baisse)` échoue en conséquence : la relation aux
+rendements est **en U et non monotone** (Q1 +11,4 %, Q3 +7,3 %, Q5 +20,3 %).
+Les deux extrêmes battent le milieu — signature d'un régime agité qui paie une
+prime de risque, pas d'une information directionnelle. Concentration :
+**événement unique**.
+
+### Le résidu orthogonalisé — le meilleur signal directionnel du projet
+
+En retirant de `p(hausse)` la part expliquée par `p(baisse)`, il reste la
+composante **purement asymétrique** :
+
+| Contrôle | Résultat |
+|---|---|
+| Décalage d'exécution | ✓ +2,9 % · +2,2 % · +2,8 % · +1,2 % (j+1 à j+5) |
+| t-stat Newey-West | ⚠ **+2,12** — marginal |
+| Concentration temporelle | ⚠ pas un événement unique, mais **69 % du gain sur 10 journées** (sur 4 094) |
+| Monotonie des quintiles | ✗ Q2 décroche à +7,1 % |
+
+C'est le signal directionnel le mieux tenu de tout le projet — et il reste
+**non établi**. Trois réserves, dont une qui m'incombe :
+
+1. Un `t` de 2,12 est marginal, et j'ai testé **le signal brut puis le
+   résidu** sur les mêmes données. Deux essais, donc un seuil qui devrait
+   monter.
+2. 69 % du gain sur 0,24 % des journées reste un profil de loterie.
+3. La non-monotonie interdit de dire que « plus le signal est fort, mieux
+   c'est » — ce qu'on attendrait d'un vrai effet.
+
+### Le diagnostic gradué
+
+Ce cas a révélé que mon drapeau binaire `is_single_event` était trop grossier :
+un total qui reste positif sans les dix meilleures journées ne le déclenche
+pas, alors que 69 % du gain sur dix journées est clairement un profil de
+loterie. `event_concentration()` gradue désormais — *réparti*, *concentré —
+fragile*, *très concentré — profil de loterie*, *événement unique* — avec un
+test qui reproduit exactement ce cas limite.

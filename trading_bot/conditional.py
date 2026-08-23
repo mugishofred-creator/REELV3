@@ -193,13 +193,32 @@ def event_concentration(predictions: pd.DataFrame, date_column: str = "date",
             "total sans elles": round(total - head, 3),
         })
     table = pd.DataFrame(rows).set_index("meilleures journées")
-    without_ten = total - float(daily.head(min(10, len(daily))).sum())
+    ten = min(10, len(daily))
+    without_ten = total - float(daily.head(ten).sum())
+    share_ten = float(daily.head(ten).sum() / total) if total > 0 else float("nan")
+
     table.attrs["n_dates"] = int(len(daily))
     table.attrs["median_day"] = float(daily.median())
     table.attrs["winning_days"] = float((daily > 0).mean())
+    table.attrs["top10_share"] = share_ten
     # Un total qui devient négatif sans les dix meilleures journées : le
     # résultat est un événement, pas un effet.
     table.attrs["is_single_event"] = bool(total > 0 and without_ten <= 0)
+
+    # Le drapeau binaire est un seuil grossier : 69 % du gain porté par dix
+    # journées sur quatre mille ne le déclenche pas, et reste pourtant un
+    # profil de loterie. On gradue donc, en rapportant la part des dix
+    # meilleures journées à leur poids dans l'échantillon.
+    if not np.isfinite(share_ten) or total <= 0:
+        table.attrs["concentration"] = "sans objet (pas de gain)"
+    elif table.attrs["is_single_event"]:
+        table.attrs["concentration"] = "événement unique — non exploitable"
+    elif share_ten > 0.5:
+        table.attrs["concentration"] = "très concentré — profil de loterie"
+    elif share_ten > 0.25:
+        table.attrs["concentration"] = "concentré — fragile"
+    else:
+        table.attrs["concentration"] = "réparti"
     return table
 
 

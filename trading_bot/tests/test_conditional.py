@@ -153,6 +153,28 @@ def test_single_event_is_detected():
     assert table.loc[10, "total sans elles"] <= 0
 
 
+def test_concentration_is_graded_not_only_binary():
+    """Le drapeau binaire laissait passer 69 % du gain sur dix journées.
+
+    Reproduit le cas réel : le total reste positif sans les dix meilleures
+    journées — donc ``is_single_event`` est faux — alors que le profil est
+    clairement celui d'une loterie.
+    """
+    rng = np.random.default_rng(30)
+    data = {}
+    for i in range(500):
+        date = pd.Timestamp("2016-01-01") + pd.Timedelta(days=i)
+        data[str(date.date())] = list(rng.normal(0.0004, 0.003, 25))
+    for j, day in enumerate([50, 90, 130, 170, 210, 250, 290, 330, 370, 410]):
+        date = pd.Timestamp("2016-01-01") + pd.Timedelta(days=day)
+        data[str(date.date())] = list(np.full(25, 0.05))
+
+    table = K.event_concentration(_daily(data))
+    assert not table.attrs["is_single_event"]          # le total reste positif
+    assert table.attrs["top10_share"] > 0.5
+    assert table.attrs["concentration"] == "très concentré — profil de loterie"
+
+
 def test_broad_effect_is_not_flagged():
     """Contrôle symétrique : un effet réparti sur des centaines de journées doit
     passer, sinon le garde-fou rejetterait aussi les vrais signaux."""
@@ -166,6 +188,7 @@ def test_broad_effect_is_not_flagged():
     assert not table.attrs["is_single_event"]
     assert table.loc[10, "part du gain"] < 0.25
     assert table.attrs["winning_days"] > 0.6
+    assert table.attrs["concentration"] == "réparti"
 
 
 def test_concentration_counts_dates_not_observations():
