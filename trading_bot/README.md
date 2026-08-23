@@ -645,3 +645,97 @@ prédiction directionnelle n'a survécu.
 C'est convergent avec quarante ans de littérature, et c'est la réponse honnête à
 la question posée : sur des données quotidiennes publiques, avec des coûts
 réalistes, l'edge exploitable est le contrôle du risque, pas la prévision.
+
+
+---
+
+## 12. « Va ailleurs » : quatre terrains hors du cadre quotidien
+
+Après l'échec des sept premières pistes sur données quotidiennes classiques,
+recherche sur des terrains structurellement différents. Mêmes contrôles.
+
+### La décomposition nuit / jour — réelle, stable, et incapturable
+
+99 actions, 2005-2026. Séparation du rendement en **nuit** (clôture → ouverture)
+et **jour** (ouverture → clôture) :
+
+| Segment | Annualisé | Volatilité | Sharpe |
+|---|---|---|---|
+| **Nuit** | **+10,37 %** | 11,0 % | **0,952** |
+| Jour | +4,72 % | 14,4 % | 0,392 |
+| Total | +15,47 % | 18,6 % | 0,867 |
+
+Deux tiers du rendement se fabriquent pendant que les marchés sont fermés, pour
+une volatilité moindre. Et c'est le résultat le plus **stable** de tout le
+projet : la nuit rapporte entre +8,4 % et +20,7 % dans les cinq sous-périodes,
+**jamais négative**.
+
+Mais la capturer impose d'acheter à la clôture et vendre à l'ouverture, soit
+**504 transactions par an** :
+
+| Coût/côté | Coût annuel | Net annualisé | Sharpe |
+|---|---|---|---|
+| 0,5 bp | 2,52 % | +7,62 % | 0,723 |
+| 1 bp | 5,04 % | +4,95 % | 0,494 |
+| **2 bps** | **10,08 %** | **−0,21 %** | 0,036 |
+
+Le buy & hold donne +15,47 % pour **zéro** transaction. L'anomalie est
+strictement dominée par le fait de ne rien faire — et c'est probablement la
+raison de son existence : elle rémunère précisément la friction qui empêche de
+l'exploiter.
+
+### Crypto — un marché plus jeune, pas plus exploitable
+
+21 cryptos à univers fixe, 2019-2026, coûts 20 bps/côté. Référence : buy & hold
+du même univers, qui porte le même (sévère) biais du survivant.
+
+| Stratégie | Alpha/an | Beta | t-stat |
+|---|---|---|---|
+| Momentum 90j (saut 7j) | +10,2 % | 0,83 | **+0,69** |
+| Momentum 180j | +0,6 % | 0,79 | +0,04 |
+| Reversal 30j | +3,3 % | 0,82 | +0,21 |
+| Reversal 7j | −6,7 % | 0,85 | −0,48 |
+
+Aucun alpha significatif. Et en absolu, **aucune stratégie ne bat l'équipondéré
+rebalancé** (+45,4 %/an). Le long/short est impossible à modéliser
+honnêtement : shorter un actif qui fait ×100 dépasse −100 % de perte.
+
+### Effets de calendrier — instables
+
+| Fenêtre | Rendement moyen/jour | t-stat |
+|---|---|---|
+| Tour du mois (4 j) | +0,0587 % | +1,81 |
+| Reste du mois | +0,0459 % | +2,74 |
+
+Et par sous-période, l'effet s'inverse : +0,0040 %/j contre +0,0155 % pour le
+reste en 2005-2009, +0,0165 % contre +0,0543 % en 2015-2019. Le « mardi » sort à
+t = 2,29, mais sur cinq jours testés c'est un artefact de **tests multiples** —
+le seuil corrigé serait bien plus élevé.
+
+### Deux bugs statistiques trouvés en chemin
+
+**Tester la moyenne des résidus donne toujours zéro.** Les résidus d'une
+régression OLS avec constante sont orthogonaux à l'intercept par construction.
+Cette erreur a produit des t-stats de `+0.00` sur toutes les stratégies crypto
+avant d'être repérée. Il faut la t-stat du **coefficient** alpha, via une
+covariance sandwich de Newey-West.
+
+**Une garde numérique absolue ne protège de rien.** Sur une stratégie
+parfaitement colinéaire à sa référence — un simple levier, sans alpha possible —
+les résidus tombent à 1e-17, la variance à 1e-32, et la t-stat sortait à
+**+2,03 : « significatif »**, entièrement fabriqué par le bruit de virgule
+flottante. Le critère de dégénérescence doit être **relatif** à l'échelle des
+données. Verrouillé par un test.
+
+### Bilan des onze pistes
+
+Un seul résultat significatif dans tout le projet : l'allocation diversifiée
+(t = +3,59), qui n'est pas un edge mais la prime de risque correctement
+récoltée. Deux signaux réels et robustes — la volatilité et le classement par
+momentum — qui réduisent le risque sans augmenter le rendement. Une anomalie
+parfaitement stable, l'effet nuit, dont les coûts de transaction annulent
+exactement le gain.
+
+C'est une réponse, pas un échec : sur des données quotidiennes publiques, avec
+des coûts réalistes et une méthodologie qui ne se ment pas, **l'edge exploitable
+est le contrôle du risque**.

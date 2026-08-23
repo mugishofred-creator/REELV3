@@ -69,3 +69,59 @@ def test_newey_west_detects_a_genuinely_strong_mean():
     rng = np.random.default_rng(5)
     strong = pd.Series(rng.normal(0.002, 0.005, 2000))
     assert carry.newey_west_tstat(strong) > 2.0
+
+
+# --------------------------------------------------------------------------- #
+# Alpha contre une référence
+# --------------------------------------------------------------------------- #
+def test_alpha_tstat_detects_a_real_alpha():
+    rng = np.random.default_rng(9)
+    n = 3000
+    benchmark = pd.Series(rng.normal(0.0003, 0.01, n))
+    # Stratégie = beta 1 sur la référence + un alpha franc.
+    strategy = benchmark + rng.normal(0.0006, 0.004, n)
+
+    result = carry.alpha_tstat(strategy, benchmark)
+    assert result["beta"] == pytest.approx(1.0, abs=0.05)
+    assert result["alpha_annuel"] > 0.1
+    assert result["significatif"]
+
+
+def test_alpha_tstat_rejects_pure_beta():
+    """Une stratégie qui n'est qu'un levier sur la référence n'a pas d'alpha."""
+    rng = np.random.default_rng(10)
+    benchmark = pd.Series(rng.normal(0.0004, 0.012, 3000))
+    strategy = 1.3 * benchmark + rng.normal(0.0, 0.003, 3000)   # levier + bruit centré
+
+    result = carry.alpha_tstat(strategy, benchmark)
+    assert result["beta"] == pytest.approx(1.3, abs=0.02)
+    assert not result["significatif"]
+
+
+def test_alpha_tstat_handles_perfect_collinearity():
+    """Un levier pur donne des résidus nuls : la t-stat diviserait par zéro."""
+    rng = np.random.default_rng(13)
+    benchmark = pd.Series(rng.normal(0.0004, 0.012, 500))
+    result = carry.alpha_tstat(2.0 * benchmark, benchmark)
+    assert np.isfinite(result["tstat"])
+    assert not result["significatif"]
+
+
+def test_testing_residual_means_would_always_give_zero():
+    """Le piège qui a produit des t-stats de 0.00 pendant cette recherche.
+
+    Les résidus d'une régression OLS avec constante sont orthogonaux à
+    l'intercept : leur moyenne est **exactement** nulle, quelle que soit la
+    stratégie. Tester cette moyenne ne mesure rien. Il faut la t-stat du
+    coefficient alpha lui-même.
+    """
+    rng = np.random.default_rng(11)
+    benchmark = pd.Series(rng.normal(0.0004, 0.012, 2000))
+    strategy = benchmark + rng.normal(0.001, 0.005, 2000)   # alpha massif
+
+    X = np.column_stack([np.ones(len(benchmark)), benchmark.to_numpy()])
+    coefficients, *_ = np.linalg.lstsq(X, strategy.to_numpy(), rcond=None)
+    residuals = strategy.to_numpy() - X @ coefficients
+
+    assert residuals.mean() == pytest.approx(0.0, abs=1e-12)   # toujours zéro
+    assert carry.alpha_tstat(strategy, benchmark)["significatif"]  # l'alpha, lui, existe

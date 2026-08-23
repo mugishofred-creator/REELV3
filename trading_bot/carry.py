@@ -98,3 +98,46 @@ def newey_west_tstat(returns: pd.Series, lags: int = 21) -> float:
         weight = 1 - lag / (lags + 1)
         variance += 2 * weight * float((values[lag:] * values[:-lag]).sum())
     return float(values.mean() * n / np.sqrt(variance)) if variance > 0 else 0.0
+
+
+def alpha_tstat(strategy: pd.Series, benchmark: pd.Series, lags: int = 21) -> dict:
+    """Alpha annualisé d'une stratégie contre sa référence, et sa significativité.
+
+    Piège à éviter : tester la moyenne des **résidus** d'une régression avec
+    constante donne toujours zéro — les résidus OLS sont orthogonaux à
+    l'intercept par construction. Il faut la t-stat du **coefficient** alpha,
+    via une matrice de covariance sandwich corrigée de l'autocorrélation
+    (Newey-West), sans quoi le chevauchement des rendements gonfle la
+    significativité.
+    """
+    joint = strategy.index.intersection(benchmark.index)
+    y = strategy.loc[joint].to_numpy(dtype=float)
+    b = benchmark.loc[joint].to_numpy(dtype=float)
+    X = np.column_stack([np.ones(len(b)), b])
+
+    coefficients, *_ = np.linalg.lstsq(X, y, rcond=None)
+    residuals = y - X @ coefficients
+
+    # Colinéarité quasi parfaite (un simple levier sur la référence) : les
+    # résidus tombent au niveau du bruit de virgule flottante, ~1e-17. La
+    # variance sandwich vaut alors ~1e-32 et la t-stat devient un rapport de
+    # deux zéros numériques — elle a produit +2.03 sur une stratégie sans le
+    # moindre alpha. Le critère doit être RELATIF à l'échelle des données.
+    if residuals.std() < 1e-10 * max(y.std(), 1e-300):
+        return {"alpha_annuel": float(coefficients[0] * 252),
+                "beta": float(coefficients[1]), "tstat": 0.0, "significatif": False}
+
+    xtx_inv = np.linalg.inv(X.T @ X)
+    scores = residuals[:, None] * X
+    meat = scores.T @ scores
+    for lag in range(1, lags + 1):
+        weight = 1 - lag / (lags + 1)
+        gamma = scores[lag:].T @ scores[:-lag]
+        meat += weight * (gamma + gamma.T)
+    covariance = xtx_inv @ meat @ xtx_inv
+
+    variance = float(covariance[0, 0])
+    tstat = coefficients[0] / np.sqrt(variance) if variance > 0 else 0.0
+
+    return {"alpha_annuel": float(coefficients[0] * 252), "beta": float(coefficients[1]),
+            "tstat": float(tstat), "significatif": bool(abs(tstat) > 2)}
