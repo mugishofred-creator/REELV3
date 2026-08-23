@@ -121,6 +121,17 @@ def _normalise(raw: pd.DataFrame) -> pd.DataFrame:
     df = df[COLUMNS]
     # Une barre sans clôture n'est pas une barre.
     df = df[df["close"].notna()]
+
+    # Prix négatifs ou nuls : ce n'est pas toujours une anomalie de données —
+    # le WTI a réellement coté −37 $ le 20 avril 2020. Mais le rendement
+    # logarithmique n'y est pas défini, et tout le jeu de features en dépend.
+    # On retire ces barres explicitement plutôt que de laisser np.log produire
+    # des NaN silencieux accompagnés d'un RuntimeWarning.
+    non_positive = (df["close"] <= 0).sum()
+    if non_positive:
+        logger.warning("%d barre(s) à prix négatif ou nul retirée(s) — "
+                       "le rendement logarithmique n'y est pas défini", int(non_positive))
+        df = df[df["close"] > 0]
     df["high"] = df[["high", "close"]].max(axis=1)
     df["low"] = df[["low", "close"]].min(axis=1)
     df["open"] = df["open"].fillna(df["close"])
@@ -165,6 +176,62 @@ def _fetch_alphavantage(cfg: DataConfig, max_attempts: int = 4) -> pd.DataFrame:
             )
             frame.index.name = "datetime"
             return _normalise(frame.reset_index())
+        except DataError:
+            raise
+        except Exception as exc:
+            last_error = exc
+            wait = 2**attempt
+            logger.warning("Tentative %d échouée (%s) — nouvel essai dans %ds",
+                           attempt + 1, exc, wait)
+            time.sleep(wait)
+    raise DataError(f"Récupération impossible pour {cfg.symbol}: {last_error}")
+
+
+#: Panier par défaut : FX, actions, matières premières, crypto. La diversité
+#: des classes d'actifs est délibérée — un modèle mutualisé n'apprend une
+#: relation générale que si on lui montre plusieurs régimes différents.
+DEFAULT_UNIVERSE = (
+    "EURUSD=X", "GBPUSD=X", "JPY=X", "AUDUSD=X", "CHF=X", "CAD=X",
+    "^GSPC", "GC=F", "CL=F", "BTC-USD",
+)
+
+
+def _fetch_yahoo(cfg: DataConfig, start: str = "2005-01-01",
+                 max_attempts: int = 4) -> pd.DataFrame:
+    """OHLCV quotidien depuis Yahoo Finance, sans clé.
+
+    Deux pièges : l'API exige un ``User-Agent`` de navigateur (sinon 429), et
+    ``range=max`` renvoie silencieusement du **mensuel** au lieu du quotidien —
+    on passe donc par ``period1``/``period2`` explicites.
+    """
+    p1 = int(pd.Timestamp(start).timestamp())
+    p2 = int(pd.Timestamp.now().timestamp())
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{cfg.symbol}"
+    params = {"period1": p1, "period2": p2, "interval": "1d"}
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    last_error: Exception | None = None
+    for attempt in range(max_attempts):
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=60)
+            response.raise_for_status()
+            payload = response.json()
+            error = (payload.get("chart") or {}).get("error")
+            if error:
+                raise DataError(f"Yahoo: {error}")
+            result = payload["chart"]["result"][0]
+            quote = result["indicators"]["quote"][0]
+            frame = pd.DataFrame(
+                {
+                    "datetime": pd.to_datetime(result["timestamp"], unit="s").normalize(),
+                    "open": quote.get("open"),
+                    "high": quote.get("high"),
+                    "low": quote.get("low"),
+                    "close": quote.get("close"),
+                    "volume": quote.get("volume"),
+                }
+            )
+            return _normalise(frame)
         except DataError:
             raise
         except Exception as exc:
@@ -221,7 +288,11 @@ def load(cfg: DataConfig) -> pd.DataFrame:
     if cfg.provider == "csv":
         return _load_csv(cfg)
 
-    fetch = _fetch_alphavantage if cfg.provider == "alphavantage" else _fetch_twelvedata
+    fetch = {
+        "alphavantage": _fetch_alphavantage,
+        "yahoo": _fetch_yahoo,
+        "twelvedata": _fetch_twelvedata,
+    }[cfg.provider]
     conn = _init_cache(cfg.cache_path)
     try:
         cached = _cache_read(conn, cfg)

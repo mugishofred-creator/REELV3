@@ -19,11 +19,13 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     g = p.add_argument_group("données")
-    g.add_argument("--symbol", default="EUR/USD")
+    g.add_argument("--symbol", default="EURUSD=X",
+                   help="symbole du provider (Yahoo : EURUSD=X ; Alpha Vantage : EUR/USD)")
     g.add_argument("--interval", default="1day")
     g.add_argument("--outputsize", type=int, default=2000)
-    g.add_argument("--provider", choices=["alphavantage", "twelvedata", "csv", "synthetic"],
-                   default="alphavantage")
+    g.add_argument("--provider",
+                   choices=["yahoo", "alphavantage", "twelvedata", "csv", "synthetic"],
+                   default="yahoo")
     g.add_argument("--csv-path")
     g.add_argument("--cache-ttl-hours", type=float, default=12.0)
 
@@ -56,9 +58,50 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--spread-bps", type=float, default=1.0)
     g.add_argument("--edge-threshold", type=float, default=0.02)
 
+    g = p.add_argument_group("multi-actifs")
+    g.add_argument("--panel", action="store_true",
+                   help="entraîne UN modèle mutualisé sur plusieurs actifs (voir --universe)")
+    g.add_argument("--universe", nargs="+", default=None,
+                   help="symboles Yahoo ; défaut = panier FX/actions/matières/crypto")
+
     p.add_argument("--json", metavar="PATH", help="écrit les prédictions en CSV et un résumé JSON")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
+
+
+def _run_panel(cfg: Config, args) -> int:
+    """Mode mutualisé : un seul modèle pour tous les actifs du panier."""
+    from . import evaluate, panel
+    from .data import DEFAULT_UNIVERSE
+
+    symbols = args.universe or list(DEFAULT_UNIVERSE)
+    try:
+        pan = panel.build_panel(symbols, cfg, include_slow=not args.fast)
+        predictions = panel.walk_forward(pan, cfg)
+    except Exception as exc:
+        print(f"Échec : {exc}", file=sys.stderr)
+        return 1
+
+    report = evaluate.evaluate(predictions)
+    result = panel.portfolio_backtest(pan, predictions, cfg)
+
+    print("=" * 72)
+    print(f"PANEL MUTUALISÉ : {pan.frame['symbol'].nunique()} actifs, "
+          f"{len(pan.frame):,} lignes")
+    print(f"ÉVÉNEMENT       : {labels_describe(cfg)}")
+    print("=" * 72)
+    print("\n--- QUALITÉ DE LA PROBABILITÉ " + "-" * 42)
+    print(report.to_text())
+    print("\n--- PORTEFEUILLE (parité de risque) " + "-" * 36)
+    print(result.to_text())
+    if not report.has_skill:
+        print("\nATTENTION : sans skill, les chiffres de portefeuille sont du bruit.")
+    return 0 if report.has_skill else 2
+
+
+def labels_describe(cfg: Config) -> str:
+    from .labels import describe
+    return describe(cfg.label)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -83,6 +126,9 @@ def main(argv: list[str] | None = None) -> int:
                           evidence_weight=args.evidence_weight),
         backtest=BacktestConfig(spread_bps=args.spread_bps, edge_threshold=args.edge_threshold),
     )
+
+    if args.panel:
+        return _run_panel(cfg, args)
 
     try:
         result = run(cfg, include_slow=not args.fast)

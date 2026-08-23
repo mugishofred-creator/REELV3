@@ -69,7 +69,10 @@ def position_from_probability(
     edge = p - baseline
     dead_zone = np.where(edge.abs() < cfg.edge_threshold, 0.0, edge)
     # Un edge de 2× le seuil sature la position : sizing linéaire, borné.
-    scaled = dead_zone / (2 * cfg.edge_threshold)
+    # Seuil nul (« toujours en position ») : on normalise par un edge de
+    # référence de 5 points, sinon la division explose.
+    normaliser = 2 * cfg.edge_threshold if cfg.edge_threshold > 0 else 0.05
+    scaled = dead_zone / normaliser
     return pd.Series(
         np.clip(scaled, -cfg.max_position, cfg.max_position), index=p.index, name="position"
     )

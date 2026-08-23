@@ -126,6 +126,81 @@ n'a aucun skill.
 
 Le juge de paix est la section « qualité de la probabilité », jamais le P&L.
 
+## 3 ter. Ce qui fait passer le bot au vert : la mutualisation
+
+Sur un actif seul, en quotidien, la direction n'est pas prédictible. Ce n'est
+pas un défaut de modèle mais un problème de **rapport signal/bruit par pari**,
+et il n'a que deux issues :
+
+1. augmenter l'edge par pari — c'est ce que tout le monde tente, et ce qui
+   échoue sur EUR/USD ;
+2. **augmenter le nombre de paris peu corrélés.** Loi fondamentale de la gestion
+   active (Grinold) : ``IR ≈ IC × √breadth``. Un edge minuscule répété sur dix
+   actifs produit un ratio que le même edge sur un seul ne produira jamais.
+
+D'où `--panel` : **un seul** modèle entraîné sur tous les actifs empilés
+(52 659 lignes contre 4 000), découpage train/test **par date** pour que tous les
+actifs basculent ensemble, features en rang percentile calculées *par actif*
+pour être comparables entre l'euro et le pétrole.
+
+```bash
+python -m trading_bot --panel --event direction --horizon 1 \
+    --n-splits 6 --min-train-size 1200 --spread-bps 2 --fast
+```
+
+| | Un seul actif | **Panel mutualisé (10 actifs)** |
+|---|---|---|
+| AUC | 0.494 | **0.538** |
+| Brier skill | −0.0008 | **+0.0048** |
+| Folds positifs | 1/8 | **6/6** |
+| Sharpe (2 bps) | négatif | **+1.06** |
+
+### La sensibilité aux coûts décide de tout
+
+L'edge est réel mais minuscule, et la stratégie tourne tous les jours. Le seuil
+de rentabilité se situe vers **7–8 bps** :
+
+| Spread | Rendement (21 ans) | Annualisé | Sharpe |
+|---|---|---|---|
+| 0 bp | +151 % | +4,1 % | +1,55 |
+| 1 bp | +120 % | +3,5 % | +1,33 |
+| 2 bps | +93 % | +2,9 % | +1,11 |
+| 5 bps | +29 % | +1,1 % | +0,44 |
+| 10 bps | −34 % | −1,8 % | −0,68 |
+
+Ce tableau *est* le résultat. Un backtest sans lui ne veut rien dire.
+
+### Ce que le modèle a appris, et à quel point c'est fragile
+
+Coefficients dominants : `channel_pos_20` −0.62 (position haute dans le canal
+20 jours → baisse plus probable) et `ret_1` −0.19, c'est-à-dire du **retour à la
+moyenne court terme** ; puis `ret_20` +0.11, du **momentum moyen terme**. Deux
+effets parmi les mieux documentés de la littérature — pas un motif exotique.
+
+Mais l'ablation est sévère :
+
+| Features | AUC | Skill | Folds + | Sharpe @2bps |
+|---|---|---|---|---|
+| 30 (complet) | 0.5375 | +0.0048 | 6/6 | **+1.06** |
+| 6 (minimal) | 0.5317 | +0.0032 | 6/6 | +0.38 |
+| sans `channel_pos`/`bb_position` | 0.5204 | +0.0004 | 4/6 | **−0.23** |
+
+Le cœur de l'edge tient à la position dans l'intervalle récent : le retirer tue
+tout. Et l'écart entre 6 et 30 features (0.38 → 1.06 de Sharpe) est exactement
+là où se loge le sur-apprentissage. **Le chiffre robuste est 0.38, pas 1.06.**
+
+### Pourquoi ce n'est pas une fuite
+
+`test_negative_control_on_the_panel_path` fait tourner le chemin panel entier
+sur dix marches aléatoires indépendantes : AUC 0.498, skill +0.0000, Sharpe
++0.000. Le découpage par date, la purge et le portefeuille sont sains — le
+résultat sur données réelles vient des données, pas de la mécanique.
+
+### Les horizons plus longs ne marchent pas
+
+Testé aussi, sans succès : h=5 (skill −0.0002, 2 folds sur 6) et h=21
+(+0.0007, 3 sur 6). L'edge est concentré sur l'horizon quotidien.
+
 ## 4. Évaluer une probabilité, pas une décision
 
 `classification_report` juge un choix binaire après seuillage ; il ne dit rien
