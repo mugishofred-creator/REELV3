@@ -1164,3 +1164,103 @@ n'offre pas de rendement supplémentaire pour la payer. C'est exactement le
 même schéma que l'effet nuit : **une régularité réelle dont les coûts de
 transaction absorbent précisément le gain** — et c'est probablement la raison
 pour laquelle elle survit.
+
+
+---
+
+## 18. « Rendre la perte impossible et augmenter le gain »
+
+Deux demandes souvent confondues. **Une seule est réalisable** — et la seconde
+cache une vérité qui, elle, l'est.
+
+### Borner la perte : faisable, et le prix est affiché
+
+On place aujourd'hui la valeur actuelle du capital en actif sans risque, de
+sorte qu'elle vaille exactement le capital initial à l'échéance ; le reste part
+en risque. La part investie **n'est pas un choix** : elle découle du taux et de
+l'horizon.
+
+Appliqué à la stratégie retenue, taux sans risque 3,6 % :
+
+| Structure | Participation | Annualisé | DD max | Pire année | Années perdantes |
+|---|---|---|---|---|---|
+| Aucune protection | 100 % | **+8,59 %** | −24,8 % | −19,1 % | 25 % |
+| Plancher 100 % à 3 ans | 10 % | +4,16 % | **−2,3 %** | **+1,2 %** | **0 %** |
+| Plancher 100 % à 5 ans | 16 % | +4,49 % | −3,9 % | −0,3 % | 5 % |
+| Plancher 100 % à 10 ans | 30 % | +5,21 % | −7,4 % | −3,5 % | 10 % |
+| Plancher 100 % à 15 ans | 41 % | +5,80 % | −10,2 % | −6,2 % | 15 % |
+
+**La perte devient impossible, et ça coûte 4,4 points de rendement par an** —
+la moitié. Ce n'est pas une inefficacité : c'est le prix d'un achat. Et il
+monte quand les taux baissent : à 0,5 %, la même garantie à 10 ans ne laisse
+presque rien à investir.
+
+Trois réserves à ne pas oublier : la garantie est **nominale** (l'inflation
+érode quand même), elle ne vaut **qu'à l'échéance** (sortir avant, c'est perdre
+la protection), et elle suppose l'émetteur solvable.
+
+### La version dynamique : CPPI
+
+| Structure | Annualisé | DD max | Pire année |
+|---|---|---|---|
+| Aucune protection | +8,59 % | −24,8 % | −19,1 % |
+| CPPI m=2, plancher 90 % | +4,61 % | −4,1 % | −0,9 % |
+| CPPI m=3, plancher 90 % | +5,02 % | −5,7 % | −2,6 % |
+| CPPI m=5, plancher 80 % | +7,05 % | −16,0 % | −12,8 % |
+
+Le plancher est **cliquet** : il monte avec le capital et ne redescend jamais.
+Mais attention — en temps discret la perte n'est **pas** bornée : un saut
+supérieur à `1/m` en une séance traverse le plancher. Avec m = 5, une chute de
+20 % suffit, et l'histoire en compte plusieurs. C'est le **risque de gap**,
+verrouillé par un test qui le reproduit.
+
+### Augmenter l'espérance : impossible — sauf sur un point
+
+L'espérance **arithmétique** ne peut pas être augmentée par la gestion du
+risque. Théorème d'arrêt optionnel, section 10.
+
+Mais ce n'est pas la moyenne arithmétique qui vous enrichit — c'est la
+**croissance géométrique** :
+
+```
+g ≈ μ − σ²/2
+```
+
+Ce terme `−σ²/2` est le **frein de volatilité**, et il croît avec le *carré* de
+la volatilité. Vérifié sur données réelles :
+
+| Série | Frein observé | σ²/2 théorique | Écart |
+|---|---|---|---|
+| SPY | 1,8759 % | 1,8726 % | +0,0033 % |
+| Équipondéré | 1,2596 % | 1,2562 % | +0,0034 % |
+| Stratégie | 0,6734 % | 0,6703 % | +0,0030 % |
+
+Réduire σ **sans réduire μ** augmente donc g. Et c'est là que tout se joue :
+
+| | μ arithm. | σ | Frein | **g géométrique** |
+|---|---|---|---|---|
+| SPY seul | +12,40 % | 19,4 % | 1,88 % | +10,52 % |
+| SPY à 50 % d'exposition | +6,20 % | 9,7 % | 0,47 % | **+5,73 %** |
+| 22 actifs équipondérés | +10,08 % | 15,9 % | 1,26 % | +8,82 % |
+| **Stratégie, remise à la volatilité de SPY** | +14,90 % | **19,4 %** | 1,88 % | **+13,02 %** |
+
+Deux lectures opposées :
+
+- **Réduire l'exposition** divise μ *et* σ. Le frein baisse, mais g aussi.
+  « Moins risquer » n'est pas « gagner plus ».
+- **Diversifier** divise σ *sans toucher* à μ. Le frein s'effondre, g monte.
+  C'est le seul repas gratuit de la finance, et c'est celui que la stratégie
+  retenue exploite.
+
+La dernière ligne est la réponse complète à « comment gagner plus ». **À
+volatilité identique à celle de SPY (19,4 %), la stratégie compose à 13,02 %
+contre 10,52 %** — deux points et demi de plus par an, pour exactement le même
+risque. Ce n'est pas un edge de prévision : c'est un meilleur ratio, mis à
+l'échelle.
+
+### La réponse en une phrase
+
+On ne peut pas augmenter l'espérance en gérant le risque. On peut **borner la
+perte à un prix connu**, et on peut **augmenter ce qui compose** en diversifiant
+— puis choisir son niveau d'exposition. Tout le reste de ce dépôt a servi à
+vérifier qu'aucun raccourci n'existait.
