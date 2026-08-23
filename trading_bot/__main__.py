@@ -55,7 +55,9 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--fast", action="store_true", help="désactive Hurst et l'entropie")
 
     g = p.add_argument_group("backtest")
-    g.add_argument("--spread-bps", type=float, default=1.0)
+    g.add_argument("--spread-bps", type=float, default=1.0,
+                   help="coût proportionnel PAR CÔTÉ (aller-retour = 2x) ; "
+                        "y sommer demi-spread + commission + slippage")
     g.add_argument("--edge-threshold", type=float, default=0.02)
 
     g = p.add_argument_group("multi-actifs")

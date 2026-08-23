@@ -119,12 +119,29 @@ class ModelConfig:
 class BacktestConfig:
     """Coûts et exécution.
 
-    ``spread_bps`` est appliqué sur le *turnover*, pas sur la position : ne payer
-    que ce qu'on échange. ``execution_lag`` = 1 signifie qu'un signal calculé sur
-    la clôture de t est exécuté à la clôture de t+1 — jamais au prix qui a servi
-    à le calculer.
+    ``execution_lag`` = 1 signifie qu'un signal calculé sur la clôture de t est
+    exécuté à la clôture de t+1 — jamais au prix qui a servi à le calculer.
     """
 
+    #: Coût proportionnel au notionnel échangé, **prélevé à chaque côté** :
+    #: ``coût = |Δposition| × spread_bps / 10_000``.
+    #:
+    #: Trois précisions, parce que le nom prête à confusion :
+    #:
+    #: - **Par côté, pas par aller-retour.** Un cycle plat → long plein → plat
+    #:   génère un turnover de 2, donc ``spread_bps=10`` y coûte 20 bps au total.
+    #: - **Proportionnel, pas forfaitaire.** Passer de 0.3 à 0.4 ne coûte que
+    #:   10 % de ce que coûte passer de 0 à 1. Le sizing étant continu, la
+    #:   plupart des ajustements sont partiels.
+    #: - **Ce n'est pas seulement le spread.** Il faut y sommer tout ce qui est
+    #:   payé par côté : ``demi-spread + commission + slippage estimé``. Pour
+    #:   l'EUR/USD, un spread affiché de 1 pip vaut 0.86 bps, soit 0.43 bps de
+    #:   demi-spread, plus ~0.2-0.5 bps de commission ECN.
+    #:
+    #: Ne sont **pas** modélisés : le financement overnight (le manque le plus
+    #: sérieux — les positions sont tenues ~2 jours, donc le swap s'applique à
+    #: presque chaque trade), l'impact de marché, les commissions forfaitaires
+    #: par ticket, et le slippage d'exécution.
     spread_bps: float = 1.0
     execution_lag: int = 1
     #: Probabilité au-delà de laquelle on prend une position (en valeur absolue
