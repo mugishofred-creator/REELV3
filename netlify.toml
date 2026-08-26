@@ -1,0 +1,17 @@
+# Deploys site/ to Netlify. Connect the repo in Netlify and it reads this file —
+# no build settings to fill in by hand.
+#
+# The site is fully prerendered, so it ships as a static export: no server, no
+# cold starts, and nothing to keep in sync with a Next.js runtime plugin.
+#
+# After the first deploy, set NEXT_PUBLIC_SITE_URL in
+# Site configuration → Environment variables to the address the site actually
+# answers on, so canonical URLs, the sitemap and Open Graph tags point there.
+
+[build]
+  command = "cd site && npm ci && npm run build"
+  publish = "site/out"
+
+[build.environment]
+  STATIC_EXPORT = "1"
+  NODE_VERSION = "22"

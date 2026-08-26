@@ -68,18 +68,26 @@ that the drop has not opened — it never pretends to take money.
 **Deploying** — set `NEXT_PUBLIC_SITE_URL` so canonical URLs, Open Graph images
 and the sitemap point at the real domain.
 
-`.github/workflows/deploy-site.yml` publishes the site to GitHub Pages on every
-push that touches `site/`. Pages has no image optimizer and serves projects from
-a subpath, so that build runs as a static export: `DEPLOY_TARGET=pages` switches
-on `output: "export"`, and `PAGES_BASE_PATH` / `NEXT_PUBLIC_BASE_PATH` prefix
-routes and `/public` assets. Everything else — `npm run dev`, `npm run start`, a
-Vercel deploy — keeps the full server build, image optimization included.
+Every route prerenders, so the site needs no server at all. `STATIC_EXPORT=1`
+switches the build to `output: "export"` and writes a plain `out/` folder that
+any static host serves. Without it, the full server build runs — image
+optimization included — which is what `dev`, `start` and Vercel use.
 
-To reproduce that build locally:
+- **Netlify** — `netlify.toml` at the repo root sets the build command, the
+  publish directory and `STATIC_EXPORT`, so connecting the repo is the whole
+  setup. Afterwards, set `NEXT_PUBLIC_SITE_URL` in the Netlify environment
+  variables to the live address.
+- **GitHub Pages** — `.github/workflows/deploy-site.yml` deploys on every push
+  that touches `site/`. Project pages live under a subfolder, so the workflow
+  also sets `NEXT_PUBLIC_BASE_PATH` to `/<repo>`; that prefix is what routes and
+  `/public` assets are built against.
+
+To reproduce either build locally:
 
 ```bash
-DEPLOY_TARGET=pages PAGES_BASE_PATH=/REELV3 NEXT_PUBLIC_BASE_PATH=/REELV3 npm run build
-npx http-server .. -p 4173   # then open http://localhost:4173/REELV3/
+STATIC_EXPORT=1 npm run build && npx http-server out -p 4173
+# or, for a subfolder host:
+STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=/REELV3 npm run build
 ```
 
 ## Art direction

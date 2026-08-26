@@ -1,22 +1,22 @@
 import type { NextConfig } from "next";
 
 /**
- * GitHub Pages serves the site from a subpath and has no image optimizer, so the
- * Pages build is a static export. Everything else — dev, `next start`, a future
- * Vercel deploy — keeps the full server build untouched.
+ * The site is fully prerendered, so any static host can serve it: set
+ * STATIC_EXPORT=1 for a `out/` folder with no server behind it (Netlify,
+ * GitHub Pages, Cloudflare Pages). Without it the full server build runs,
+ * image optimization included — that is what `dev`, `start` and Vercel use.
+ *
+ * NEXT_PUBLIC_BASE_PATH is only needed on a host that serves the site from a
+ * subfolder rather than a domain root, e.g. GitHub project pages.
  */
-const isPages = process.env.DEPLOY_TARGET === "pages";
+const isStatic = process.env.STATIC_EXPORT === "1";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  images: isPages ? { unoptimized: true } : { formats: ["image/avif", "image/webp"] },
-  ...(isPages
-    ? {
-        output: "export",
-        basePath: process.env.PAGES_BASE_PATH ?? "",
-        trailingSlash: true,
-      }
-    : {}),
+  images: isStatic ? { unoptimized: true } : { formats: ["image/avif", "image/webp"] },
+  ...(basePath ? { basePath } : {}),
+  ...(isStatic ? { output: "export", trailingSlash: true } : {}),
 };
 
 export default nextConfig;
