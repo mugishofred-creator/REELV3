@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { getAllProducts } from "@/lib/products";
 import { site } from "@/lib/site";
 
+/** Both are fully static; saying so lets the Pages export emit them as files. */
+export const dynamic = "force-static";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const routes = ["", "/sins", "/cloud", "/shop", "/world"].map((path) => ({

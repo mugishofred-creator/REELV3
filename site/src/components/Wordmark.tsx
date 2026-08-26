@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { asset } from "@/lib/asset";
 import styles from "./Wordmark.module.css";
 
 type WordmarkProps = {
@@ -36,7 +37,7 @@ export function Wordmark({ variant = "display", stacked = false, className }: Wo
 export function Sigil({ size = 28, className }: { size?: number; className?: string }) {
   return (
     <Image
-      src="/brand/lf-mark.webp"
+      src={asset("/brand/lf-mark.webp")}
       alt=""
       width={Math.round(size * 0.8)}
       height={size}

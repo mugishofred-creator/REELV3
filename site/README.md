@@ -68,6 +68,20 @@ that the drop has not opened — it never pretends to take money.
 **Deploying** — set `NEXT_PUBLIC_SITE_URL` so canonical URLs, Open Graph images
 and the sitemap point at the real domain.
 
+`.github/workflows/deploy-site.yml` publishes the site to GitHub Pages on every
+push that touches `site/`. Pages has no image optimizer and serves projects from
+a subpath, so that build runs as a static export: `DEPLOY_TARGET=pages` switches
+on `output: "export"`, and `PAGES_BASE_PATH` / `NEXT_PUBLIC_BASE_PATH` prefix
+routes and `/public` assets. Everything else — `npm run dev`, `npm run start`, a
+Vercel deploy — keeps the full server build, image optimization included.
+
+To reproduce that build locally:
+
+```bash
+DEPLOY_TARGET=pages PAGES_BASE_PATH=/REELV3 NEXT_PUBLIC_BASE_PATH=/REELV3 npm run build
+npx http-server .. -p 4173   # then open http://localhost:4173/REELV3/
+```
+
 ## Art direction
 
 One background (`--ink`), one metal (`--chrome`), one accent (`--gold`, used

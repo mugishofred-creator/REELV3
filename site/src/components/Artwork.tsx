@@ -1,13 +1,14 @@
 import Image from "next/image";
+import { asset } from "@/lib/asset";
 import type { ArtworkKey } from "@/lib/products";
 import styles from "./Artwork.module.css";
 
 const SOURCES: Record<ArtworkKey, { src: string; width: number; height: number }> = {
-  "lf-mark": { src: "/brand/lf-mark.webp", width: 1000, height: 1250 },
-  crown: { src: "/brand/crown.webp", width: 1400, height: 933 },
-  star: { src: "/brand/star.webp", width: 900, height: 1350 },
-  stars: { src: "/brand/stars.webp", width: 1000, height: 1000 },
-  eyes: { src: "/brand/eyes.webp", width: 1500, height: 844 },
+  "lf-mark": { src: asset("/brand/lf-mark.webp"), width: 1000, height: 1250 },
+  crown: { src: asset("/brand/crown.webp"), width: 1400, height: 933 },
+  star: { src: asset("/brand/star.webp"), width: 900, height: 1350 },
+  stars: { src: asset("/brand/stars.webp"), width: 1000, height: 1000 },
+  eyes: { src: asset("/brand/eyes.webp"), width: 1500, height: 844 },
 };
 
 /** Brand artwork sits in the dark: screen blend, never a box on a box. */
