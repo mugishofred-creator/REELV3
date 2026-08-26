@@ -1,0 +1,85 @@
+/* Artwork above the name, never behind it. Nothing competes with the title. */
+.head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.5rem, 5vh, 3rem);
+  padding: var(--page-top) var(--gutter) clamp(3rem, 9vh, 5.5rem);
+  text-align: center;
+}
+
+.art {
+  width: var(--head-art, 70%);
+  max-width: 32rem;
+  opacity: calc(0.55 + 0.4 * var(--warmth));
+}
+
+.core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.75rem, 2.5vh, 1.5rem);
+}
+
+.index {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.title {
+  font-size: var(--step-title);
+  line-height: 0.86;
+}
+
+.prompt {
+  color: var(--chrome-soft);
+}
+
+.story {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 56rem) {
+  .story {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.statement {
+  font-size: var(--step-line);
+  font-weight: 300;
+  letter-spacing: var(--track-line);
+  text-transform: uppercase;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.paragraphs {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pieces {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2rem, 5vw, 3rem);
+}
+
+.next {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+  padding-block: var(--chapter);
+}
+
+.nextTitle {
+  font-size: clamp(2.25rem, 9vw, 4.5rem);
+  line-height: 0.9;
+}

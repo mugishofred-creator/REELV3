@@ -1,0 +1,109 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 1rem;
+  padding-block: 1.25rem;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.line:last-child {
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.thumb {
+  width: 4.5rem;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.name {
+  font-size: var(--step-label);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.price {
+  font-size: var(--step-label);
+  letter-spacing: 0.1em;
+  color: var(--chrome-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.size {
+  font-size: 0.625rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.quantity {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--hairline);
+}
+
+.step {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  color: var(--chrome-soft);
+  transition: color var(--fast) var(--ease);
+}
+
+.step:hover,
+.step:focus-visible {
+  color: var(--chrome);
+}
+
+.value {
+  min-width: 2rem;
+  text-align: center;
+  font-size: var(--step-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.remove {
+  font-size: 0.625rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+  transition: color var(--fast) var(--ease);
+}
+
+.remove:hover,
+.remove:focus-visible {
+  color: var(--chrome);
+}
+
+.empty {
+  padding-block: 2.5rem;
+  color: var(--chrome-soft);
+  font-size: var(--step-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}

@@ -1,0 +1,284 @@
+/* ------------------------------------------------------------------
+   LORD FORGIVE ME — design tokens
+   One ink. One chrome. One gold. Everything else is space.
+------------------------------------------------------------------ */
+
+:root {
+  /* Surfaces */
+  --ink: #050506;
+  --ink-raised: #0b0b0d;
+  --ink-deep: #000000;
+
+  /* Chrome */
+  --chrome: #f2f1ef;
+  --chrome-soft: #9d9da2;
+  --chrome-faint: #7e7e84;
+  --hairline: rgba(255, 255, 255, 0.11);
+  --hairline-soft: rgba(255, 255, 255, 0.06);
+
+  /* The only accent the brand owns */
+  --gold: #c79b3b;
+
+  /* Type */
+  --font-gothic: var(--font-grenze), "Times New Roman", serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --step-label: 0.6875rem;
+  --step-body: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
+  --step-line: clamp(1.0625rem, 0.85rem + 1.9vw, 2rem);
+  --step-title: clamp(2.75rem, 1.4rem + 8vw, 7.5rem);
+  --step-wordmark: clamp(2.25rem, 1rem + 7.6vw, 7rem);
+
+  --track-label: 0.34em;
+  --track-line: 0.24em;
+
+  /* Rhythm */
+  --gutter: clamp(1.25rem, 5vw, 4.5rem);
+  /* Clears the fixed header without inheriting the horizontal gutter. */
+  --page-top: clamp(5.5rem, 11vh, 8rem);
+  --chapter: clamp(6rem, 16vh, 12rem);
+  --measure: 34ch;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --slow: 1200ms;
+  --mid: 620ms;
+  --fast: 280ms;
+
+  /* Set to 0 when the visitor refuses to carry theirs. A colder world. */
+  --warmth: 1;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--chrome);
+  font-family: var(--font-sans);
+  font-size: var(--step-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* The colder world: the answer to the question actually changes the light. */
+body[data-answer="no"] {
+  --warmth: 0;
+  --chrome: #cfced0;
+  --chrome-soft: #7c7c82;
+  --gold: #8d7a45;
+}
+
+img,
+picture,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+p,
+figure,
+blockquote {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:focus-visible {
+  outline: 1px solid var(--chrome);
+  outline-offset: 4px;
+}
+
+::selection {
+  background: var(--chrome);
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- */
+/* Typography primitives                                             */
+/* ---------------------------------------------------------------- */
+
+.gothic {
+  font-family: var(--font-gothic);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+/* Narrative fragments. Never a paragraph. */
+.line {
+  font-size: var(--step-line);
+  font-weight: 300;
+  letter-spacing: var(--track-line);
+  text-transform: uppercase;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.label {
+  font-size: var(--step-label);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-soft);
+}
+
+.prose {
+  max-width: var(--measure);
+  color: var(--chrome-soft);
+  font-size: var(--step-body);
+  line-height: 1.75;
+}
+
+/* Polished metal, used on the few words that carry the brand. */
+.chrome-text {
+  background: linear-gradient(
+    177deg,
+    #ffffff 4%,
+    #b9b9bd 24%,
+    #56565c 46%,
+    #e9e9ec 58%,
+    #8e8e94 76%,
+    #ffffff 96%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------------------------------------------------------------- */
+/* Layout primitives                                                 */
+/* ---------------------------------------------------------------- */
+
+.shell {
+  width: 100%;
+  max-width: 96rem;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.chapter {
+  padding-block: var(--chapter);
+}
+
+.rule {
+  height: 1px;
+  background: var(--hairline);
+  border: 0;
+  margin: 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Skip link */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 200;
+  padding: 0.75rem 1rem;
+  background: var(--chrome);
+  color: var(--ink);
+  font-size: var(--step-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/* ---------------------------------------------------------------- */
+/* Reveal — content arrives, it does not perform                     */
+/* ---------------------------------------------------------------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(1.25rem);
+  transition:
+    opacity var(--slow) var(--ease),
+    transform var(--slow) var(--ease);
+  will-change: opacity, transform;
+}
+.reveal[data-seen="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Artwork sits in the dark rather than on top of it. */
+.artwork {
+  mix-blend-mode: screen;
+  opacity: calc(0.55 + 0.45 * var(--warmth));
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The page takes focus when the veil lifts; it should not draw a ring for that. */
+#content:focus {
+  outline: none;
+}

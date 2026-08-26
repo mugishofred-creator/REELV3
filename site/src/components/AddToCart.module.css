@@ -1,0 +1,56 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sizes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.legend {
+  font-size: 0.625rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.size {
+  min-width: 3.25rem;
+  padding: 0.7rem 0.5rem;
+  border: 1px solid var(--hairline);
+  font-size: var(--step-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--chrome-soft);
+  transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.size:hover,
+.size:focus-visible {
+  color: var(--chrome);
+  border-color: var(--chrome-faint);
+}
+
+.size[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--chrome);
+  border-color: var(--chrome);
+}
+
+.status {
+  font-size: 0.625rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+  min-height: 1.2em;
+}

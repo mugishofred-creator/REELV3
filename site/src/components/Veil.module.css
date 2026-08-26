@@ -1,0 +1,155 @@
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: var(--gutter);
+  background:
+    radial-gradient(120% 90% at 50% 42%, #131317 0%, #08080a 45%, #000000 100%);
+  transition: opacity 900ms var(--ease), filter 900ms var(--ease);
+}
+
+.leaving {
+  opacity: 0;
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.75rem, 6vh, 3.5rem);
+  text-align: center;
+  max-width: 46rem;
+}
+
+.sigil {
+  animation: rise 1600ms var(--ease) both;
+  filter: drop-shadow(0 0 32px rgba(199, 155, 59, 0.22));
+  transition: filter 1200ms var(--ease), opacity 1200ms var(--ease);
+}
+
+/* Refusing dims the room. */
+.veil[data-answer="no"] .sigil {
+  filter: grayscale(0.85) brightness(0.6);
+  opacity: 0.5;
+}
+
+.name {
+  animation: rise 1800ms var(--ease) both;
+}
+
+.beat {
+  min-height: 5.5em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: clamp(1.5rem, 5vh, 2.75rem);
+}
+
+.beatLine {
+  animation: rise 1400ms var(--ease) both;
+  color: var(--chrome);
+}
+
+.question {
+  color: var(--chrome);
+}
+
+.choices {
+  display: flex;
+  align-items: center;
+  gap: clamp(1.75rem, 9vw, 4.5rem);
+  animation: rise 1200ms var(--ease) 320ms both;
+}
+
+.choice {
+  position: relative;
+  padding: 1rem 1.25rem;
+  font-size: 0.8125rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-soft);
+  transition: color var(--fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.choice::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.55rem;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0.25);
+  transform-origin: center;
+  transition: transform var(--mid) var(--ease);
+}
+
+.choice:hover,
+.choice:focus-visible {
+  color: var(--chrome);
+}
+
+.choice:hover::after,
+.choice:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.divider {
+  width: 1px;
+  height: 1.75rem;
+  background: var(--hairline);
+}
+
+.skip {
+  position: absolute;
+  bottom: calc(var(--gutter) * 0.8);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--step-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+  animation: fade 900ms var(--ease) 2600ms both;
+  transition: color var(--fast) var(--ease);
+}
+
+.skip:hover,
+.skip:focus-visible {
+  color: var(--chrome-soft);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.9rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sigil,
+  .name,
+  .beatLine,
+  .choices,
+  .skip {
+    animation: none;
+  }
+}

@@ -1,0 +1,43 @@
+/* One button shape in the whole house. */
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1.05rem 1.5rem;
+  background: var(--chrome);
+  color: var(--ink);
+  font-size: var(--step-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  transition: opacity var(--fast) var(--ease), background var(--fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action:hover,
+.action:focus-visible {
+  opacity: 0.86;
+}
+
+.action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ghost {
+  background: none;
+  color: var(--chrome);
+  border: 1px solid var(--hairline);
+}
+
+.ghost:hover,
+.ghost:focus-visible {
+  border-color: var(--chrome);
+  opacity: 1;
+}
+
+.inline {
+  width: auto;
+}

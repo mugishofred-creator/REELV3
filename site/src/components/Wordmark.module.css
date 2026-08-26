@@ -1,0 +1,31 @@
+.wordmark {
+  display: block;
+  font-size: var(--step-wordmark);
+  letter-spacing: 0.015em;
+  text-wrap: balance;
+}
+
+.stacked {
+  line-height: 0.86;
+}
+
+.stacked span {
+  display: block;
+}
+
+.small {
+  font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.sigil {
+  width: auto;
+  height: var(--sigil-size, 1.75rem);
+  object-fit: contain;
+}
+
+/* The refused world keeps its gold dimmed everywhere, not only at the door. */
+:global(body[data-answer="no"]) .sigil {
+  filter: grayscale(0.75) brightness(0.7);
+}

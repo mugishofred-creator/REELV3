@@ -1,0 +1,15 @@
+.wrap {
+  min-height: 78svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.25rem, 4vw, 2rem);
+  text-align: center;
+  padding: calc(var(--gutter) * 3) var(--gutter);
+}
+
+.title {
+  font-size: clamp(2.25rem, 8vw, 4rem);
+  line-height: 0.95;
+}

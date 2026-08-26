@@ -1,0 +1,28 @@
+.plate {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background:
+    radial-gradient(90% 70% at 50% 38%, #141418 0%, #0a0a0c 55%, #060607 100%);
+  border: 1px solid var(--hairline-soft);
+}
+
+.art {
+  width: var(--art-width, 62%);
+  height: auto;
+  transition: transform 900ms var(--ease), opacity 900ms var(--ease);
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The plate breathes when you reach for it. Nothing more. */
+.plate:hover .art,
+a:focus-visible .plate .art {
+  transform: scale(1.035);
+}

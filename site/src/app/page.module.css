@@ -1,0 +1,148 @@
+/* ---------------------------------------------------------------- */
+/* Hero                                                              */
+/* ---------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: var(--page-top) var(--gutter) calc(var(--gutter) * 2);
+  overflow: hidden;
+}
+
+/* The crown sits above the name, the way a crown does. */
+.crown {
+  width: clamp(11rem, 44vw, 26rem);
+  opacity: calc(0.45 + 0.4 * var(--warmth));
+}
+
+.heroCore {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.1rem, 3.2vh, 2.25rem);
+  text-align: center;
+}
+
+.drop {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.wordmark {
+  text-align: center;
+}
+
+.tagline {
+  color: var(--chrome-soft);
+}
+
+.cue {
+  position: absolute;
+  bottom: clamp(1.5rem, 4vh, 3rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.625rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+}
+
+.cueRule {
+  width: 1px;
+  height: 3rem;
+  background: linear-gradient(to bottom, var(--hairline), transparent);
+}
+
+/* ---------------------------------------------------------------- */
+/* The arc                                                           */
+/* ---------------------------------------------------------------- */
+
+.arc {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2rem, 6vw, 3.5rem);
+}
+
+.arcLine {
+  color: var(--chrome);
+}
+
+.chapters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: clamp(1rem, 4vw, 3rem);
+}
+
+.chapterMark {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-family: var(--font-gothic);
+  font-size: clamp(1.5rem, 5vw, 2.75rem);
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--chrome-faint);
+}
+
+.chapterMark[data-state="open"] {
+  color: var(--chrome);
+}
+
+.chapterMark[data-state="sealed"] {
+  color: var(--chrome-faint);
+  opacity: 0.55;
+}
+
+.sealed {
+  font-family: var(--font-sans);
+  font-size: 0.5625rem;
+  letter-spacing: var(--track-label);
+  color: var(--gold);
+}
+
+/* ---------------------------------------------------------------- */
+/* Portals + close                                                   */
+/* ---------------------------------------------------------------- */
+
+.portals {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--chapter) * 0.85);
+}
+
+.pieces {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2rem, 5vw, 3.5rem);
+}
+
+.piecesHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.close {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.75rem, 5vw, 2.75rem);
+  text-align: center;
+  padding-block: var(--chapter);
+}
+
+.closeLine {
+  font-size: var(--step-title);
+  line-height: 0.9;
+}

@@ -1,0 +1,68 @@
+.portal {
+  display: grid;
+  gap: clamp(2.5rem, 7vw, 5rem);
+  align-items: center;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 56rem) {
+  .portal {
+    grid-template-columns: 1fr 1fr;
+  }
+  .flipped .art {
+    order: 2;
+  }
+}
+
+.art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: clamp(14rem, 38vw, 26rem);
+}
+
+.artImage {
+  width: var(--portal-art, 80%);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 3vw, 2rem);
+}
+
+.index {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.625rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+}
+
+.prompt {
+  font-size: var(--step-line);
+  font-weight: 300;
+  letter-spacing: var(--track-line);
+  text-transform: uppercase;
+  color: var(--chrome-soft);
+  line-height: 1.4;
+}
+
+.title {
+  font-size: var(--step-title);
+  line-height: 0.86;
+}
+
+.line {
+  font-size: var(--step-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--chrome-soft);
+}
+
+.enter {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+}
